@@ -1,0 +1,21 @@
+{
+  "enabled": true,
+  "name": "The capture choke point and the privacy guard",
+  "description": "Invariants 2, 3, 17, 18 and 19. Every capture goes through one helper; a suppressed screenshot never reaches disk; the guard fails open; an empty capture list means voice-only, never abort.",
+  "version": "1",
+  "when": {
+    "type": "fileEdited",
+    "patterns": [
+      "privacy.py",
+      "app.py",
+      "capture.py",
+      "sessions.py",
+      "chat_hud.py",
+      "debug_log.py"
+    ]
+  },
+  "then": {
+    "type": "askAgent",
+    "prompt": "A capture or privacy path changed. A silently broken blocklist is worse than no blocklist, because the user believes they are protected.\n\n1. **Invariant 2: every `mss.grab()` goes through `NimbusApp._capture_screens_guarded`.** One choke point, so a call site added later inherits the guard for free. The audit said there were two call sites; verification found three and a fourth arrived later - which is the whole argument for the choke point. If you added a capture anywhere else, move it.\n\n2. **The overlay is restored in a `finally`.** Without it, an exception during a grab leaves the user with a permanently invisible pointer for the rest of the session.\n\n3. **Invariant 17: `sessions.save_screenshot` checks `privacy_skipped` FIRST**, before the settings check. The ordering IS the correctness property. And the flag passed in must be the SAME boolean the guard returned, or the protection is decorative.\n\n4. **Invariant 18: the guard fails OPEN.** Blocking requires positive identification; the `\"unknown\"` sentinel and an empty name never block on name. Detection fails transiently during window transitions, on elevation prompts and against elevated processes, and failing closed would make Nimbus stop working at random.\n\n5. **Invariant 19: an empty capture list means \"no screenshot\", never \"abort\".** The turn continues voice-only, any coordinate the model returns is DISCARDED, annotations are discarded but their tags are still stripped, and the grid locator is skipped.\n\n6. **Invariant 3: the chat panel is never captured.** `WDA_EXCLUDEFROMCAPTURE` re-applied on every `showEvent`. If you touched `chat_hud.py`, confirm nothing introduced `WA_TranslucentBackground`, a sub-1.0 `setWindowOpacity`, or a `QGraphicsEffect` on any child - all three force the layered path, and a layered window CANNOT be excluded from capture.\n\n7. **If you changed the blocklist, assert BOTH tables.** The must-suppress table and the must-NOT-suppress table. A guard tested only for what it catches is a guard nobody has checked for what it wrongly catches - that second table is what caught documentation pages about passwords being suppressed.\n\n8. **A reason string must stay user-presentable** - no regex, no path, no exe name. The toast may itself be captured in a screenshot or a recording.\n\nRun `tests/test_privacy.py`, `tests/test_sessions.py` and `tests/test_chat_hud.py`. Report only what is wrong."
+  }
+}

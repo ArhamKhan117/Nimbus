@@ -1,0 +1,22 @@
+{
+  "enabled": true,
+  "name": "The signing boundary changed",
+  "description": "The desktop app trusts a licence because of a signature and nothing else. The token bytes are a cross-language contract, so any change here needs the contract test re-run in both languages.",
+  "version": "1",
+  "when": {
+    "type": "fileEdited",
+    "patterns": [
+      "licensing.py",
+      "licence_key.py",
+      "web/src/lib/licence.ts",
+      "web/src/lib/licences.ts",
+      "web/scripts/keygen.mjs",
+      "tools/set_licence_key.py",
+      "tools/issue_local_licence.py"
+    ]
+  },
+  "then": {
+    "type": "askAgent",
+    "prompt": "The signing boundary changed. This is the security core: the desktop app trusts a licence because of a signature made in `web/src/lib/licence.ts` and for no other reason.\n\nCheck all of these:\n\n1. **The byte contract still holds.** The payload is serialised over SORTED KEYS WITH NO WHITESPACE, and empty/null/undefined values are OMITTED. The Python verifier checks the signature over the exact bytes it received, so any difference in key order between what was signed and what was sent breaks EVERY licence. Run `web/src/lib/licence.test.ts` - it asserts those bytes, and it is the only thing keeping two languages in agreement.\n\n2. **No private key entered the repo.** Run the no-private-key-in-repo guard. The private half must exist only in the licence service's environment. Getting this wrong once is unrecoverable.\n\n3. **No new dependency in the signing file.** It uses `node:crypto` and nothing else, deliberately - the PKCS#8 wrapper is a fixed 16-byte prefix, small enough that reaching for a package would add supply-chain surface to the one file that must not have any.\n\n4. **Status codes still partition correctly.** The Python client CLEARS its cache on a 4xx and KEEPS it on a 5xx. A missing subscription is 402, not 403. Get this wrong and an outage becomes a lockout.\n\n5. **`follow_redirects=True` is still set** on the Python client's POST. Removing it breaks every shipped installer's licence path the moment a host adds a redirect - and the service URL is baked into installers, so it cannot be corrected retroactively.\n\n6. **The health endpoint still signs then verifies**, so a mismatched key pair is caught by a check rather than by someone trying to activate.\n\nReport only what is wrong."
+  }
+}

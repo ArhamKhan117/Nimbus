@@ -1,0 +1,20 @@
+{
+  "enabled": true,
+  "name": "Three coordinate spaces, one direction of travel",
+  "description": "Invariants 8, 10 and 12. Positions transform and lengths only scale; the device pixel ratio is per-screen and never cached. A mistake here mispoints the cursor on one monitor of a mixed-DPI pair.",
+  "version": "1",
+  "when": {
+    "type": "fileEdited",
+    "patterns": [
+      "capture.py",
+      "overlay.py",
+      "annotations.py",
+      "locator.py",
+      "app.py"
+    ]
+  },
+  "then": {
+    "type": "askAgent",
+    "prompt": "A coordinate-handling module changed. There are exactly three spaces and the conversions between them are the highest-risk arithmetic in this project.\n\n- **Space A** - what the model answers in: the DECLARED capture resolution.\n- **Space B** - physical desktop pixels, absolute across all monitors.\n- **Space C** - per-window logical pixels, which is what Qt draws in.\n\nCheck each of these:\n\n1. **Invariant 12: `scale_x == scale_y` in every `CaptureResult`.** `capture._aspect_preserving_size` uses ONE uniform factor capped at 1.0. Measured: a 3840x1080 monitor previously picked 1920x1080 and was squashed 2x horizontally, giving `scale_x=2.0, scale_y=1.0` - 4 of 6 targets hit at 50px max error, versus 6 of 6 at 15px after the fix.\n\n2. **Invariant 10: positions transform, lengths only scale.** In `annotations_to_local`, a radius or a width must NOT have a screen origin subtracted from it. The symptom is circles and boxes at the wrong size, or offset by a screen origin.\n\n3. **Invariant 8: `devicePixelRatio()` is read PER SCREEN, never cached as a global.** A cached ratio lands the pointer wrong on one screen of a mixed-DPI pair.\n\n4. **Clamp before scaling** in `unscale_model_coords`, not after.\n\n5. **A new shape needs BOTH tests**: a tag-strip test (Invariant 13 - coordinates are never spoken) and a coordinate-mapping test. `Rect` was added in T1-2 and silently DISCARDED by both `isinstance` dispatches for a whole tier, because nothing errors when an unhandled shape simply is not drawn.\n\n6. **A new tag keyword goes in `_SHAPE_KEYWORDS`, which is interpolated into both strip regexes.** Forgetting the second one lets a TRUNCATED tag's coordinates be read aloud, and that passes every happy-path test because only a cancelled or token-limited stream produces an unterminated tag.\n\n7. **Invariant 11: Win32 ex-styles are OR'd after `show()`, never assigned.** The bit pattern is `0x080800A8` with `SWP_FRAMECHANGED`, pinned by `test_clickthrough_flags_bit_pattern`.\n\nRun `tests/test_capture.py`, `tests/test_overlay.py` and `tests/test_annotations.py`. Report only what is wrong."
+  }
+}
