@@ -1,0 +1,18 @@
+{
+  "enabled": true,
+  "name": "The licence gate must actually run",
+  "description": "Invariants 26 and 27. The gate once never ran at all: a NameError swallowed by a blanket except in a windowed build with no stdout. Every import inside the gate is local for that reason.",
+  "version": "1",
+  "when": {
+    "type": "fileEdited",
+    "patterns": [
+      "app.py",
+      "licensing.py",
+      "activation_dialog.py"
+    ]
+  },
+  "then": {
+    "type": "askAgent",
+    "prompt": "The startup licence gate or its module changed. This shipped broken once and nothing reported it, so check all five points.\n\n**What happened.** A module was referenced inside the gate but not imported, producing a `NameError` that a blanket `except` swallowed - in a windowed build with no stdout, so nothing anywhere reported it. THE GATE NEVER RAN AT ALL. The app started unlicensed and looked completely normal.\n\n1. **Every import inside `_run_startup_licence_gate` is LOCAL to that function.** Not a module-level import it happens to rely on. This is the fix for the defect above, not a style choice.\n\n2. **Invariant 26: the gate runs AFTER `QApplication` and BEFORE the hotkey listener installs and before the microphone opens.** An unlicensed instance must consume no devices and register no global hooks. Verify the call ordering in `__main__` has not moved.\n\n3. **Invariant 27: a gate EVALUATION failure is not a lockout.** The caller catches `Exception`, calls `_record_licence_gate_failure`, and STARTS ANYWAY. Refusing to run because the licence is invalid is correct; refusing to run because our check crashed is not.\n\n4. **The failure record goes to a FILE.** There is no console in a frozen windowed build, which is exactly why the original defect was invisible.\n\n5. **Invariant 28: `revalidate()` never clears a good licence on a network error.** Only a 4xx clears anything. A service outage must not become the user's lockout. And `sign_out()` must never touch `FIRST_RUN_AT` - signing out is not a way to restart the trial clock.\n\nRun `tests/test_licensing.py`, including the test that injects an exception at each import and call inside the gate. Report only what is wrong."
+  }
+}

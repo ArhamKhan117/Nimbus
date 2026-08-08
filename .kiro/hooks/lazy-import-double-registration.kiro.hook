@@ -1,0 +1,19 @@
+{
+  "enabled": true,
+  "name": "Lazy imports must be registered twice",
+  "description": "Invariant 30. Checks that every function-local import appears in BOTH nimbus.spec hiddenimports AND app._run_selftest runtime_modules - the gap that only shows up in a frozen build on another machine.",
+  "version": "1",
+  "when": {
+    "type": "fileEdited",
+    "patterns": [
+      "nimbus.spec",
+      "app.py",
+      "config.py",
+      "shell/__init__.py"
+    ]
+  },
+  "then": {
+    "type": "askAgent",
+    "prompt": "Invariant 30 check. A file governing the frozen build's module graph changed.\n\nAny module imported INSIDE a function is invisible to PyInstaller's static graph. It must appear in BOTH places or it fails first in a frozen build on another machine, where there is no console to see the error:\n\n1. `nimbus.spec` -> `hiddenimports`\n2. `app._run_selftest` -> `runtime_modules`\n\n`gemini_cache` and `gemini_live` both slipped through this exact gap in Tier 1. `shell/__init__.py` uses a lazy `__getattr__`, so every module under `shell/` and `shell/pages/` is in the same category.\n\nGrep for function-local imports across the repo, diff that set against both lists, and report anything present in one list but not the other, or in neither. Then run:\n\n.\\.venv\\Scripts\\python.exe -m app --selftest\n\nIt must print SELFTEST OK. Report only discrepancies."
+  }
+}
