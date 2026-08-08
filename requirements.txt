@@ -1,0 +1,44 @@
+# Nimbus — dependencies
+#
+
+# Core
+google-genai>=2.16.0       # Native Gemini SDK — structured spatial grounding (point/box_2d),
+                           # thinking budgets, Search grounding, Live API. The OpenAI-compat
+                           # shim exposes none of these, which is why the native SDK is a
+                           # separate dependency rather than a base_url change.
+openai>=1.60.0             # OpenAI SDK — vision (default LLM) + Realtime speech-to-speech; also the OpenRouter OpenAI-compat endpoint for model-agnostic BYOK routing via ai.create_ai_client
+anthropic>=0.40.0          # Anthropic SDK — opt-in alternate vision provider (plain vision messages.stream(), NOT Computer Use)
+mss>=9.0.1                 # Multi-monitor screen capture, DPI-aware
+PyQt6>=6.7.0               # Transparent overlay + QPropertyAnimation
+pynput>=1.7.7              # Global hotkey with low-level hook suppression
+sounddevice>=0.5.0         # Audio capture (PCM16 16kHz for STT) + output playback (Cartesia PCM stream)
+numpy>=1.26.0              # Audio buffer manipulation
+assemblyai>=0.33.0         # Streaming STT (WebSocket + ForceEndpoint for PTT, ~150ms P50 finalization)
+cartesia>=1.0.0            # Streaming TTS (Sonic-3 WebSocket, ~150-250ms TTFB, expressive "buddy" voice, async Python SDK)
+elevenlabs>=2.0            # Streaming TTS (Flash v2.5, ~75ms model TTFB) — opt-in alternative to Cartesia
+Pillow>=10.4.0             # Image resize with LANCZOS, base64 encoding
+
+# Knowledge-base document formats (T3-2). Lazily imported and individually optional: a
+# missing one skips that format with a log rather than breaking the knowledge base, matching
+# how the local STT/TTS providers degrade. Text extraction is deliberate over the Gemini
+# Files API so PDFs work on all five providers including the fully-local Ollama path.
+pypdf>=5.1.0               # PDF text extraction — pure Python, no native deps (PyInstaller-friendly)
+python-docx>=1.1.2         # .docx text + table extraction (shortcuts and field tables live in tables)
+python-dotenv>=1.0.1       # Load API keys from .env
+keyring>=25.0              # Windows Credential Manager (DPAPI per-user) for BYOK key storage — auto-migrates from .env on first launch
+scipy>=1.11                # Mann-Whitney U + bootstrap CI for tools/bench.py (latency measurement; NOT bundled in the PyInstaller spec — script-only)
+
+# Local offline providers (opt-in; lazy-imported so cloud users pay zero runtime cost; bundled in the installer, model weights download on first use)
+faster-whisper>=1.2.0      # Local STT (CTranslate2 Whisper) — FasterWhisperSTT, no API key
+kokoro-onnx>=0.4.0         # Local TTS (Kokoro-82M via ONNX, no torch) — KokoroTTS, no API key
+soundfile>=0.13.0          # Audio I/O helper for the local providers
+
+# Dev / test
+pytest>=8.3.0              # Unit tests
+pytest-mock>=3.14.0        # Mock the LLM client, audio device, screen capture in tests
+
+# Build
+# Bounded below 7 deliberately: nimbus.spec is a PyInstaller 6.x spec (the `Analysis` /
+# `EXE` / `COLLECT` shape and the `icon=`/`datas=` semantics), and a major bump would
+# need the spec revisited rather than merely re-run. Verified building with 6.22.1.
+pyinstaller>=6.11,<7       # Freezes the app into dist/Nimbus/ for installer/nimbus.iss
