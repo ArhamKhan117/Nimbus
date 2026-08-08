@@ -1,0 +1,81 @@
+# Secrets — never commit
+.env
+*.env.local
+*.key
+*_secret
+*_secret.*
+*.pem
+
+# Build-time licence constants, written by tools/set_licence_key.py. Only the PUBLIC key, so this is
+# not a secret — ignored because it varies per deployment and a committed one would silently
+# override the environment for everyone else.
+licence_key.py
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.pytest_cache/
+.coverage
+htmlcov/
+*.egg-info/
+build/
+dist/
+venv/
+.venv/
+env/
+
+# Inno Setup compiled installer output (per-build artifact)
+installer/Output/
+
+# Debug / scratch files
+debug_*.jpg
+debug_*.png
+scratch_*
+*.log
+exports/
+Nimbus Wiki/
+
+# Local working notes and superseded drafts. Not ignored until now, which meant a `git add .` would
+# have committed the lot.
+_history/
+
+# Submission narrative and scratch write-ups. These live outside the repository, so git cannot see them
+# today -- the rules are here so that copying one in does not quietly make it part of the project. The
+# repository documents the software; a submission write-up is about the submission.
+nimbus-project-story.md
+*-project-story.md
+nimbus-pl.html
+submission*.md
+SUBMISSION*.md
+
+# Throwaway verification scripts. Several one-off checkers get written, run once and deleted; an ignore
+# rule means forgetting to delete one is not the same as committing it.
+#
+# The negations are not redundant paranoia. `_*.py` is a basename pattern, so whether it also matches
+# `__init__.py` depends on wildmatch semantics rather than on intent -- and `tests/__init__.py` is what
+# makes `tests` a package so the repo root lands on `sys.path`. Ignoring it would break every
+# `from ai import ...` inside a test. Stating the exception makes the rule safe to read.
+_*.py
+_*.mjs
+_*.png
+_*.json
+_*.txt
+!__init__.py
+!__main__.py
+
+# Model caches (downloaded on first run, large)
+whisper-cache/
+.cache/
+
+# OS
+Thumbs.db
+.DS_Store
+desktop.ini
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
