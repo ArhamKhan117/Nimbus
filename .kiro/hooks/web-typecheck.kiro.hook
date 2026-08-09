@@ -1,0 +1,20 @@
+{
+  "enabled": true,
+  "name": "Typecheck the web app",
+  "description": "next build does NOT typecheck, so a green build is not evidence of a type-clean tree. The ignoreBuildErrors flags in next.config.ts are a release valve; this command is the real gate.",
+  "version": "1",
+  "when": {
+    "type": "fileEdited",
+    "patterns": [
+      "web/src/**/*.ts",
+      "web/src/**/*.tsx",
+      "web/prisma/schema.prisma",
+      "web/next.config.ts",
+      "web/package.json"
+    ]
+  },
+  "then": {
+    "type": "runCommand",
+    "command": "npx tsc --noEmit --project web/tsconfig.json"
+  }
+}

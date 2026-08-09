@@ -1,0 +1,13 @@
+{
+  "enabled": true,
+  "name": "Confirm the Definition of Done before finishing",
+  "description": "Runs at the end of a turn. Walks the Definition of Done from the testing steering file and reports anything unticked, including the collected test count.",
+  "version": "1",
+  "when": {
+    "type": "agentStop"
+  },
+  "then": {
+    "type": "askAgent",
+    "prompt": "Before this turn is considered finished, walk the Definition of Done. Report only unticked boxes; if everything is done, say so in one line.\n\nIf no source file changed this turn, skip all of it and say nothing.\n\n- [ ] New tests written, and **failing before the change, passing after**. A test that passed before the change tests nothing.\n- [ ] Full suite green, **zero** regressions, and the collected count went UP - not merely stayed level. It should be at least 2,030. Use the dotenv-neutralised command; a real `.env` poisons the run.\n- [ ] Any expectation that was CHANGED rather than added carries a comment saying why. Without that comment a real regression gets laundered into a green suite.\n- [ ] `.\\.venv\\Scripts\\python.exe -m app --selftest` prints `SELFTEST OK`.\n- [ ] Any lazily imported new module registered in BOTH `nimbus.spec` and `_run_selftest` (Invariant 30).\n- [ ] Any new external dependency got a factory hook, so it stays testable without the real thing.\n- [ ] If any of the 30 invariants was touched, the manual smoke test is **mandatory** rather than optional. Say which invariant and which of the five steps matter.\n- [ ] `IMPROVEMENTS.md` or `SHELL_AND_CHAT.md` status flipped in the same change, and the matching `.kiro/specs/*/tasks.md` checkbox updated.\n- [ ] `README.md` updated if behaviour changed in a user-visible way.\n- [ ] Any throwaway `_*.py` script deleted.\n- [ ] If a number is claimed to have improved, there is a MEASUREMENT rather than an argument. `tools/bench.py` for latency, `tools/bench_grounding.py` for pointing accuracy.\n\nDo not commit or push. That needs explicit permission."
+  }
+}

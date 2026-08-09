@@ -1,0 +1,19 @@
+{
+  "enabled": true,
+  "name": "Run the full suite after a Python change",
+  "description": "Runs the 2,030-test suite with dotenv neutralised whenever a Python module changes, and reports any regression against the collected count.",
+  "version": "1",
+  "when": {
+    "type": "fileEdited",
+    "patterns": [
+      "*.py",
+      "shell/*.py",
+      "shell/pages/*.py",
+      "tools/*.py"
+    ]
+  },
+  "then": {
+    "type": "askAgent",
+    "prompt": "A Python module changed. Run the full test suite using EXACTLY this command from the repo root, because `config.py` calls `load_dotenv()` at import and a real `.env` will poison the run:\n\n.\\.venv\\Scripts\\python.exe -c \"import dotenv,pytest,sys; dotenv.load_dotenv=lambda *a,**k:False; sys.exit(pytest.main(['-q']))\"\n\nThen check three things and report only what is wrong:\n1. Zero failures. A regression is a stop, not a note.\n2. The collected count did not DROP. It should be at least 2,030. A silently deleted test is the failure mode this guard exists for.\n3. If any expectation was CHANGED rather than added, confirm there is a comment on that line saying WHY it changed. Without that comment a real regression gets laundered into a green suite.\n\nDo not use the system `python` - it lacks the dependencies. Do not run pytest in watch mode."
+  }
+}
