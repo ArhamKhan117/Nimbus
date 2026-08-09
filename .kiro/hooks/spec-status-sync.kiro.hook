@@ -1,0 +1,13 @@
+{
+  "enabled": true,
+  "name": "Keep the spec and the engineering log in step",
+  "description": "Runs after a spec task completes. The specs are a transcription of IMPROVEMENTS.md and SHELL_AND_CHAT.md, so a status flipped in one and not the other makes both untrustworthy.",
+  "version": "1",
+  "when": {
+    "type": "postTaskExecution"
+  },
+  "then": {
+    "type": "askAgent",
+    "prompt": "A spec task just completed. Keep the three status records in step.\n\nThe documents under `.kiro/specs/` are a **transcription** of `IMPROVEMENTS.md` and `SHELL_AND_CHAT.md`, which are the original engineering logs and carry the original task IDs. A status flipped in one place and not the other makes both untrustworthy, which is worse than either being merely out of date.\n\n1. **Flip the matching entry in the engineering log.** The spec task carries its original ID in parentheses - `T3-2`, `S-7`, and so on. Find that ID in `IMPROVEMENTS.md` or `SHELL_AND_CHAT.md` and update its status marker to match.\n2. **Check the checkbox state is honest.** `- [x]` means done and verified. `- [ ]` means not started. `- [-]` means rejected, deferred, or attempted-and-abandoned - and an abandoned item must carry the reason, because the reason is the useful part. Do not mark something done that has not been verified; the point of these documents is that they can be trusted.\n3. **If the task closed a whole feature**, check that spec's `## Notes` section still reads correctly - particularly the \"where the next work goes\" and \"what must not drift\" paragraphs.\n4. **If the task added or changed a test**, confirm the collected count in `.kiro/steering/testing.md` is still accurate. It currently says 2,030.\n5. **If the task touched an invariant**, confirm `.kiro/steering/invariants.md` still describes it correctly, including its enforcement column and its symptom column.\n\nReport what you changed. Do not commit."
+  }
+}

@@ -1,0 +1,21 @@
+{
+  "enabled": true,
+  "name": "Check a Markdown file for mojibake and line endings",
+  "description": "A PowerShell round-trip once destroyed all 35 em dashes in README.md and left 452 mojibake sequences. This verifies UTF-8, CRLF and dash integrity after any documentation edit.",
+  "version": "1",
+  "when": {
+    "type": "fileEdited",
+    "patterns": [
+      "*.md",
+      ".kiro/steering/*.md",
+      ".kiro/specs/*/*.md",
+      "Nimbus Wiki/*.md",
+      "web/*.md",
+      "service/*.md"
+    ]
+  },
+  "then": {
+    "type": "askAgent",
+    "prompt": "A Markdown file changed. Verify its bytes, using Python rather than PowerShell.\n\n**Why this exists.** A PowerShell `Get-Content -Raw` piped into `WriteAllText` re-encoded `README.md` and produced 452 mojibake sequences, destroying all 35 em dashes. The file looked fine in the editor until someone scrolled.\n\nCheck, with a short `python -X utf8` script:\n\n1. **Valid UTF-8.** Decode strictly; report the byte offset of any failure.\n2. **No mojibake.** Search for the classic sequences that appear when UTF-8 is read as cp1252: `\\u00e2\\u0080\\u0094`, `\\u00e2\\u0080\\u0099`, `\\u00c3\\u00a9`, and any lone `\\ufffd`.\n3. **CRLF line endings** throughout. This repo is CRLF; a mixed file produces a diff that touches every line.\n4. **Em dashes intact.** Count U+2014 and confirm no `--` or `?` appeared where one used to be.\n5. **No emoji** if the file is a steering or spec document - the no-emoji rule is a product decision and these documents describe it.\n\nDelete the throwaway script afterwards. Report only what is wrong."
+  }
+}
