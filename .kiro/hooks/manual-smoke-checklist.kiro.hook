@@ -1,0 +1,13 @@
+{
+  "enabled": true,
+  "name": "Manual smoke test checklist",
+  "description": "Run by hand before a release. No automated test covers the real pipeline end to end, so these steps are the only evidence the product works on real hardware.",
+  "version": "1",
+  "when": {
+    "type": "userTriggered"
+  },
+  "then": {
+    "type": "askAgent",
+    "prompt": "Print the manual smoke test as a checklist for the maintainer to work through on real hardware, then wait for the results and record them.\n\n**No automated test covers the real pipeline end to end.** These steps are the only evidence the product works.\n\n**The pipeline - five steps.**\n1. Launch. Tray icon appears; the log shows `Listening for ctrl+alt+space...`.\n2. Hold the hotkey over a browser, ask *\"where's the address bar?\"*, release. Expect a chime, a waveform, a spinner, speech, and an orange pointer flying to the target and dwelling three seconds.\n3. Ask a conceptual question (*\"what is HTTP?\"*). Expect speech and **no pointer**.\n4. Re-press mid-response. Expect the old response cancelled cleanly, with no double audio.\n5. Right-click the tray, open Settings. Quit exits with no orphaned `python.exe` in Task Manager.\n\n**The shell.**\n6. Drag the frameless window; snap it to each edge; resize from all eight regions; maximise and restore.\n7. Drag it between two monitors at different scaling. Nothing should jump.\n8. Open the window and IMMEDIATELY press the push-to-talk chord. Nimbus must **listen**, not pause. This one has failed before.\n9. Close the window. Push-to-talk must still work, and the tray balloon should have appeared once.\n10. Open Settings on a 1366x768 display. Save must be reachable.\n\n**The chat panel.**\n11. Ask a question with the panel visible. The answer must be about the application, not about the panel.\n12. Dismiss and reopen the panel. The background must not be black.\n13. Switch session. No black bars down the sides.\n14. Collapse near the bottom of the screen. The body opens upwards and the bar does not move.\n15. Turn chat screenshots on, ask a question in front of a password manager. **No image on disk**, and a toast naming the reason.\n\n**Licensing, against the live service.**\n16. Activate with a key on a clean machine.\n17. Activate the same key on a second machine; the seat count moves.\n18. Try a third; the refusal names the action to take.\n19. Disconnect the network. Nimbus still starts.\n20. Sign out. The gate reappears.\n21. Register, receive the code, verify. The trial reads the full seven days, not six.\n\nRecord the results in the relevant spec's Notes section. Report any failure as a stop, not a note."
+  }
+}

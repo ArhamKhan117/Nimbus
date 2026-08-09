@@ -1,0 +1,16 @@
+{
+  "enabled": true,
+  "name": "Never commit or push without explicit permission",
+  "description": "A standing instruction. Also blocks destructive git operations and flags the two shell mistakes this environment makes: the wrong interpreter and the wrong command separator.",
+  "version": "1",
+  "when": {
+    "type": "preToolUse",
+    "toolTypes": [
+      "shell"
+    ]
+  },
+  "then": {
+    "type": "askAgent",
+    "prompt": "A shell command is about to run. Check it against these rules before allowing it.\n\n**1. Never commit, never push, without explicit permission for that specific action.** This is a standing instruction from the maintainer, stated repeatedly. `git commit`, `git push`, `gh release create`, `gh pr create` - all of them need an explicit yes first. Staging and diffing are fine.\n\n**2. Destructive git operations need explicit permission too.** `push --force`, `reset --hard`, `clean -f`, `branch -D`, `rebase`. Note that PowerShell reporting exit code 1 with a `RemoteException` on `git push` is a stderr artefact, not a failure - do not retry on that basis.\n\n**3. Never push to `main` directly** unless asked for exactly that. Releases are published by the workflow from a `v*` tag, never as a side effect of a push.\n\n**4. Use `.\\.venv\\Scripts\\python.exe`, never the system `python`.** The system interpreter lacks every dependency, and the failure looks like a code problem rather than an environment one.\n\n**5. The separator.** This is PowerShell: use `;`, not `&&`. In `cmd` it is `&`. Getting it wrong is a parse error, not a partial run.\n\n**6. No long-running commands.** No `npm run dev`, no `--watch`, no interactive editors. Use `--run` for test runners, or start a background process deliberately.\n\n**7. Prefer the dedicated tools** over `cat`, `ls`, `find`, `grep`, `sed` and `echo` redirection. They give the maintainer visibility into what changed.\n\nIf the command is safe, say so in one line and proceed. If it needs permission, say which rule applies and ask."
+  }
+}
