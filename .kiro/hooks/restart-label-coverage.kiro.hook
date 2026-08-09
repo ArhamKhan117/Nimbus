@@ -1,0 +1,18 @@
+{
+  "enabled": true,
+  "name": "A new setting needs its restart marker",
+  "description": "T4-7. A setting read once at import or construction takes effect only after a restart, so its label must carry the marker glyph or the user concludes the feature is broken.",
+  "version": "1",
+  "when": {
+    "type": "fileEdited",
+    "patterns": [
+      "config.py",
+      "settings_dialog.py",
+      "shell/pages/settings.py"
+    ]
+  },
+  "then": {
+    "type": "askAgent",
+    "prompt": "A settings file changed. Check the restart-labelling contract (T4-7).\n\nThe caching is deliberate: `resolve_setting` writes to the keyring whenever a value came from the environment, so re-resolving per interaction would put a Credential Manager write on the hottest path in the app. Removing the cache would be the wrong fix. So the minimum viable version is HONESTY - say which settings need a restart.\n\nFor every setting added or changed:\n1. Is it read once at import time, or once while building a widget tree? If yes it MUST be in `settings_dialog.RESTART_REQUIRED_SETTINGS`.\n2. Does its label carry `RESTART_MARKER`? Get it from `restart_marker_for(name)`, never by typing the glyph - it is a pure function precisely so a setting cannot be marked inconsistently in two places.\n3. API keys are deliberately ABSENT from the set. They are read per request, so a new key works immediately. Do not add one.\n4. A new setting must reproduce EXISTING behaviour by default. If it does not, the deviation needs a written justification at the definition, the way `PRIVACY_GUARD` and `KNOWLEDGE_JOURNAL` both carry one.\n5. Does `clear_local_nimbus_data` need to wipe it? A privacy-weakening setting must be restored to its safe default by a wipe, not left off from a previous session.\n\nRun the restart-label coverage test and report only what is missing."
+  }
+}

@@ -1,0 +1,26 @@
+{
+  "enabled": true,
+  "name": "No emoji in any UI string",
+  "description": "A deliberate product decision, not a style preference. The guard is narrowed to Emoji_Presentation=Yes so intentional monochrome glyphs pass - narrow it further if it misfires, never delete it.",
+  "version": "1",
+  "when": {
+    "type": "fileEdited",
+    "patterns": [
+      "shell/*.py",
+      "shell/pages/*.py",
+      "chat_hud.py",
+      "overlay.py",
+      "settings_dialog.py",
+      "activation_dialog.py",
+      "tray.py",
+      "onboarding.py",
+      "theme.py",
+      "brand.py",
+      "annotations.py"
+    ]
+  },
+  "then": {
+    "type": "askAgent",
+    "prompt": "A UI module changed. Run `TestNoEmojiInTheUi` and confirm it passes.\n\nThis is a product decision, not a lint rule: Nimbus is a teaching tool that professionals leave running all day, and an emoji in a status line is the single fastest way to make it read as a toy. The guard walks the AST over every string literal, skips docstrings, and is narrowed to `Emoji_Presentation=Yes` so that deliberate monochrome glyphs pass.\n\nIf it fires:\n- Replace the emoji with a painted primitive or a monochrome symbol glyph. `titlebar.GlyphButton` is the precedent - the maximise glyph is DRAWN because U+2B1C renders as a solid white block in Segoe UI, and every text substitute fails differently on some fallback.\n- Name the symbol font explicitly rather than leaving it to fallback, the way `theme.SYMBOL_FONT_STACK` does.\n- If you add a new glyph, measure its ink height against the surrounding cap height before shipping it. `RESTART_MARKER` documents that method: an icon-font glyph measured ~40% larger than the letters beside it because an icon font fills the em box while a text character's capitals occupy about 70% of it.\n\nIf the guard misfires on a legitimate glyph, NARROW it. Do not delete or weaken it."
+  }
+}

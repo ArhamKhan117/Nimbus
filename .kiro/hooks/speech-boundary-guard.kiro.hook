@@ -1,0 +1,22 @@
+{
+  "enabled": true,
+  "name": "Nothing machine-shaped reaches the speaker",
+  "description": "Invariants 13, 14, 15 and 16. Coordinates are never spoken, the speech call declares no tools, and a base prompt is only ever appended to - never replaced.",
+  "version": "1",
+  "when": {
+    "type": "fileEdited",
+    "patterns": [
+      "ai.py",
+      "prompts.py",
+      "tts.py",
+      "stt.py",
+      "gemini_native.py",
+      "gemini_live.py",
+      "realtime.py"
+    ]
+  },
+  "then": {
+    "type": "askAgent",
+    "prompt": "A model-layer or speech module changed. Four invariants meet here, and each has cost real debugging time.\n\n1. **Invariant 13: coordinates are never spoken.** Tags are stripped BEFORE the tail flush, and stripping is fail-closed for a truncated tag. The streaming guard is the `\"[\" in sentence_buffer` check. The symptom of breaking this is Nimbus reading *\"open bracket POINT colon four hundred\"* aloud. Compute and flush the tail from the tag-STRIPPED text, and strip outside the `try`.\n\n2. **Invariant 14: nothing machine-shaped reaches the speaker.** `ai.strip_non_speech` removes code fences, prose tool calls, LaTeX and markdown. The symptom is *\"dollar f of x equals x caret three backslash sin\"*. If you added a provider, confirm it goes through the same scrubber - and check the four scrubbers still run in the documented order.\n\n3. **Invariant 15: the speech call declares NO tools.** Measured: a tool-enabled call returns a pointer and TOTAL SILENCE. The user holds the hotkey, asks a question, and hears nothing. `gemini_native._build_config(with_tools=False)` for the speech role. This is why the architecture is split-role at all.\n\n4. **Invariant 16: a base prompt is only ever APPENDED to, never replaced.** `prompts.apply_app_addendum` and the prefix matching in `_select_system_prompt`. Replacing it silently loses the persona, the write-for-the-ear contract and the pointing rules - and nothing errors. Pinned by `test_addendum_appended_not_replacing_base_prompt`.\n\n5. **Invariant 29: the fully-local path keeps working.** Ollama plus faster-whisper plus Kokoro, no keys, no network. Every model-layer change is measured against this. A change that only works on a cloud provider is not done.\n\n6. **Write for the ear.** No lists, no numbering, no markdown in anything destined for speech. If you added spoken copy, read it aloud - `format_recap_for_speech` caps at three topics because a longer spoken list is unfollowable, and that is a speech constraint rather than a data one.\n\nRun `tests/test_ai.py`, `tests/test_tts.py`, `tests/test_prompts.py` and `tests/test_gemini_native.py`. Report only what is wrong."
+  }
+}
