@@ -85,12 +85,12 @@ function before the lookup path can be trusted.
 
 ## Tasks
 
-- [ ] 1. Name resolution and Markdown escaping
-- [ ] 1.1 Write `_sanitize_app_name` as the single normalisation point
+- [x] 1. Name resolution and Markdown escaping
+- [x] 1.1 Write `_sanitize_app_name` as the single normalisation point
   - Lowercase, strip surrounding whitespace, replace all nine Windows-reserved characters
   - Raise on a name that is empty before or after normalisation, because that indicates a caller defect
   - _Requirements: 3.1, 3.7_
-- [ ] 1.2 Delegate the knowledge base's name resolution to memory's (`T3-2`)
+- [x] 1.2 Delegate the knowledge base's name resolution to memory's (`T3-2`)
   - Replaced a second copy whose docstring claimed to mirror this one "exactly" and did not
   - Measured across 15 inputs: 7 disagreed. Memory stripped whitespace and replaced nine characters;
     the copy stripped nothing and replaced three
@@ -98,236 +98,236 @@ function before the lookup path can be trusted.
     looked for `  spaced.exe  ` and silently found nothing
   - Catch the `ValueError` and return empty, since a lookup miss is a normal outcome there
   - _Requirements: 3.2, 3.3, 3.4, 3.5, 3.7_
-- [ ] 1.3 Add the 15-case parametrised drift guard
+- [x] 1.3 Add the 15-case parametrised drift guard
   - Seeded with the seven inputs that actually diverged, so the test would have caught the original
   - _Requirements: 3.6_
-- [ ] 1.4 Write `_escape_markdown_fences` and `_escape_single_line`
+- [x] 1.4 Write `_escape_markdown_fences` and `_escape_single_line`
   - Triple backticks to `'''`; newlines to a visible `↵`; carriage returns dropped
   - Zero-width-space insertion considered and rejected as too clever to debug later
   - _Requirements: 4.2, 4.3, 4.4_
 
-- [ ] 2. The shared index
-- [ ] 2.1 Create the `apps` table and its index with create-if-not-exists semantics
+- [x] 2. The shared index
+- [x] 2.1 Create the `apps` table and its index with create-if-not-exists semantics
   - _Requirements: 5.1, 5.2_
-- [ ] 2.2 Enable write-ahead logging and open a short-lived connection per method
+- [x] 2.2 Enable write-ahead logging and open a short-lived connection per method
   - Document the single-writer model at the class level rather than adding in-process locks
   - _Requirements: 5.3, 5.4, 5.5_
-- [ ] 2.3 Create the index parent directory eagerly, and leave the memory directory lazy
+- [x] 2.3 Create the index parent directory eagerly, and leave the memory directory lazy
   - A user who never asks a question gets no folders in their home directory
   - _Requirements: 1.7, 5.7_
-- [ ] 2.4 Implement `list_known_apps`, sorted most-recently-seen first
+- [x] 2.4 Implement `list_known_apps`, sorted most-recently-seen first
   - _Requirements: 5.6_
 
-- [ ] 3. Memory record and recall
-- [ ] 3.1 Implement `recall` as a bounded tail read with no filtering
+- [x] 3. Memory record and recall
+- [x] 3.1 Implement `recall` as a bounded tail read with no filtering
   - Guard a non-positive budget explicitly: `text[-0:]` returns the **whole** string
   - Record the no-scoring choice as a wait-for-the-data decision, not an oversight
   - _Requirements: 2.1, 2.2, 2.3, 2.4, 2.5_
-- [ ] 3.2 Write the fixed four-field block and the header carrying the transparency line
+- [x] 3.2 Write the fixed four-field block and the header carrying the transparency line
   - Assemble the header by f-string, never `.format()`, so a literal brace in an application name
     cannot raise on a path that runs after the user already has their answer
   - Write an explicit text-only placeholder when there is no coordinate, for block-shape stability
   - _Requirements: 1.3, 4.1, 4.5, 4.6_
-- [ ] 3.3 Preserve the body as everything from the first block heading to end of file
+- [x] 3.3 Preserve the body as everything from the first block heading to end of file
   - A file with no heading yields an empty body and a clean rewrite rather than an error
   - _Requirements: 4.7, 4.8, 1.6_
-- [ ] 3.4 Take one clock reading per record and share it between the file and the index
+- [x] 3.4 Take one clock reading per record and share it between the file and the index
   - Two readings let the Markdown and the database skew, making sort-by-last-seen non-deterministic
   - _Requirements: 4.9_
-- [ ] 3.5 Upsert the index row, computing the count before writing the header
+- [x] 3.5 Upsert the index row, computing the count before writing the header
   - _Requirements: 5.1_
-- [ ] 3.6 Add the manual verification entry point
+- [x] 3.6 Add the manual verification entry point
   - Writes to the real folder under a reserved synthetic application name so repeated runs cannot
     pollute memory built up during actual use
   - Reconfigures stdout to UTF-8, because a Windows console defaults to an encoding that cannot
     represent the arrows and dashes that land in responses
   - _Requirements: 1.1, 1.4_
 
-- [ ] 4. Knowledge base lookup (`T3-2`)
-- [ ] 4.1 Keep the flat layout working untouched, and read it first
+- [x] 4. Knowledge base lookup (`T3-2`)
+- [x] 4.1 Keep the flat layout working untouched, and read it first
   - So a user who later adds a folder keeps their original file as the leading context
   - _Requirements: 6.1, 6.3_
-- [ ] 4.2 Add the recursive folder layout with a stable relative-path sort
+- [x] 4.2 Add the recursive folder layout with a stable relative-path sort
   - _Requirements: 6.2, 6.7_
-- [ ] 4.3 Cap files per application, applied before extraction
+- [x] 4.3 Cap files per application, applied before extraction
   - Bounds hot-path cost regardless of file sizes when a user points at a large directory
   - _Requirements: 6.8_
-- [ ] 4.4 Label each file inline with its relative path
+- [x] 4.4 Label each file inline with its relative path
   - The model benefits from knowing a shortcut list and a troubleshooting guide are separate
     documents, and the user can tell which of their files an answer came from
   - _Requirements: 6.9_
-- [ ] 4.5 Return empty for a miss and let the pipeline answer from vision and memory
+- [x] 4.5 Return empty for a miss and let the pipeline answer from vision and memory
   - _Requirements: 6.10_
-- [ ] 4.6 Skip files whose extracted text is blank rather than emitting an empty labelled section
+- [x] 4.6 Skip files whose extracted text is blank rather than emitting an empty labelled section
   - _Requirements: 7.6_
 
-- [ ] 5. Text extraction
-- [ ] 5.1 Read Markdown and plain text with replacement on undecodable bytes
+- [x] 5. Text extraction
+- [x] 5.1 Read Markdown and plain text with replacement on undecodable bytes
   - _Requirements: 6.4, 7.5_
-- [ ] 5.2 Extract PDF text behind a lazy, optional import
+- [x] 5.2 Extract PDF text behind a lazy, optional import
   - _Requirements: 6.4, 7.1, 7.2_
-- [ ] 5.3 Extract Word paragraphs **and table cells**
+- [x] 5.3 Extract Word paragraphs **and table cells**
   - Tables are where documentation puts shortcuts, field definitions and option matrices
   - _Requirements: 6.5_
-- [ ] 5.4 Make the extraction entry point never raise, and ignore unsupported suffixes silently
+- [x] 5.4 Make the extraction entry point never raise, and ignore unsupported suffixes silently
   - The pipeline already wraps the lookup; this keeps one bad file from costing the rest
   - _Requirements: 6.6, 7.3, 7.4_
-- [ ] 5.5 Route PDFs through the provider's file-upload API (`T1-6c`)
+- [-] 5.5 Route PDFs through the provider's file-upload API (`T1-6c`)
   - **Unnecessary rather than outstanding.** The content is a string injected into the system prompt
     and flows provider-agnostically; a vendor-specific file reference would fracture that contract and
     break PDFs on the fully-local path, which is a standing regression gate
   - _Requirements: 6.4_
 
-- [ ] 6. Relevance ranking (`T3-2`)
-- [ ] 6.1 Return content unchanged when it fits the budget
+- [x] 6. Relevance ranking (`T3-2`)
+- [x] 6.1 Return content unchanged when it fits the budget
   - Ranking must not reorder content that all fits: a document's own order carries meaning
   - _Requirements: 8.1, 8.2_
-- [ ] 6.2 Split on Markdown headings, falling back to one section
+- [x] 6.2 Split on Markdown headings, falling back to one section
   - _Requirements: 8.3_
-- [ ] 6.3 Score by **distinct** query terms, dropping terms below the minimum length
+- [x] 6.3 Score by **distinct** query terms, dropping terms below the minimum length
   - Occurrence counting would let a glossary entry repeating one word outrank the page that answers
     the question
   - _Requirements: 8.5, 8.6_
-- [ ] 6.4 Admit by score, break ties by earlier index, then re-emit in document order
+- [x] 6.4 Admit by score, break ties by earlier index, then re-emit in document order
   - Earlier sections win ties because a document's opening usually carries the overview
   - _Requirements: 8.4_
-- [ ] 6.5 Stop admitting zero-scoring sections once anything scoring is in
+- [x] 6.5 Stop admitting zero-scoring sections once anything scoring is in
   - _Requirements: 8.9_
-- [ ] 6.6 Preserve tail truncation for no query, one section, or nothing admitted
+- [x] 6.6 Preserve tail truncation for no query, one section, or nothing admitted
   - Keeps the change additive: callers passing no query get the exact previous behaviour
   - _Requirements: 8.7, 8.8_
-- [ ] 6.7 Guard a non-positive budget
+- [x] 6.7 Guard a non-positive budget
   - _Requirements: 8.12_
-- [ ] 6.8 Record the defect being fixed and the decision against embeddings
+- [x] 6.8 Record the defect being fixed and the decision against embeddings
   - Previously an over-budget file was tail-truncated, so a question about the discarded part was
     answered from nothing
   - Keyword ranking chosen over embeddings: a keyword score is inspectable where a cosine distance
     is not, and the standing judgement against premature vector-database complexity holds
   - _Requirements: 8.10, 8.11_
 
-- [ ] 7. Discoverability (`T3-2` follow-up)
-- [ ] 7.1 Embed the guide as a module string and seed it when absent
+- [x] 7. Discoverability (`T3-2` follow-up)
+- [x] 7.1 Embed the guide as a module string and seed it when absent
   - A bundled data file would need frozen-versus-source path resolution, a recurring "works in
     development, missing in the installer" failure. A few kilobytes in the module cannot go missing
   - Never raises: a read-only or redirected folder must not prevent startup
   - _Requirements: 9.1, 9.2, 9.5, 9.6_
-- [ ] 7.2 Write the guide content: naming, both layouts, formats, budget, cap, privacy note
+- [x] 7.2 Write the guide content: naming, both layouts, formats, budget, cap, privacy note
   - Tell the user to read the canonical name out of their memory folder, since that is the one place
     the exact name is visible
   - _Requirements: 9.3, 9.4_
-- [ ] 7.3 Choose a guide filename a flat lookup can never match, and record why it is unreachable
+- [x] 7.3 Choose a guide filename a flat lookup can never match, and record why it is unreachable
   - A flat lookup reads only `<name>.md`, and foreground detection returns executable basenames
   - _Requirements: 9.10_
-- [ ] 7.4 Add the Settings action that re-seeds then opens the folder
+- [x] 7.4 Add the Settings action that re-seeds then opens the folder
   - Covers folders created by an earlier version; reports failures because the user clicked something
   - _Requirements: 9.7, 9.8_
-- [ ] 7.5 Derive the opened folder from the path seeding returns
+- [x] 7.5 Derive the opened folder from the path seeding returns
   - Fixes a latent fragility: the handler read the folder setting twice, so it could seed one folder
     and open another
   - _Requirements: 9.9_
 
-- [ ] 8. Scheduling maths (`T3-3`)
-- [ ] 8.1 Define the fixed ladder and the ease bounds, each with its reason in the source
+- [x] 8. Scheduling maths (`T3-3`)
+- [x] 8.1 Define the fixed ladder and the ease bounds, each with its reason in the source
   - Ladder over a computed formula: the classic formula needs both an ease and a repetition count and
     misbehaves on the small datasets a personal journal is made of
   - Capped at 120 days because software changes and an older item may describe a vanished interface
   - _Requirements: 10.1, 10.2, 10.3, 10.4, 10.5_
-- [ ] 8.2 Implement ladder advance and reset
+- [x] 8.2 Implement ladder advance and reset
   - Wrong resets to the start rather than stepping back: stepping back keeps a genuinely unknown item
     circulating at week-long gaps
   - _Requirements: 10.6, 10.7_
-- [ ] 8.3 Implement asymmetric ease adjustment with clamping
+- [x] 8.3 Implement asymmetric ease adjustment with clamping
   - Failure moves ease further than success, because one correct answer is weak evidence
   - _Requirements: 10.8_
-- [ ] 8.4 Scale the ladder by ease, flooring at one day and capping at the ladder top
+- [x] 8.4 Scale the ladder by ease, flooring at one day and capping at the ladder top
   - A zero-day interval would make the item due again in the same session
   - _Requirements: 10.9_
-- [ ] 8.5 Expose one scheduling entry point returning position, ease and days together
+- [x] 8.5 Expose one scheduling entry point returning position, ease and days together
   - So a caller cannot update position and ease inconsistently
   - _Requirements: 10.10, 10.11_
 
-- [ ] 9. Local intent matching (`T3-3`)
-- [ ] 9.1 Define the three intents and their trigger phrases
+- [x] 9. Local intent matching (`T3-3`)
+- [x] 9.1 Define the three intents and their trigger phrases
   - _Requirements: 12.1, 12.2_
-- [ ] 9.2 Normalise case, question marks and whitespace before matching
+- [x] 9.2 Normalise case, question marks and whitespace before matching
   - _Requirements: 12.7_
-- [ ] 9.3 Reject any transcript over the word cap as a real question
+- [x] 9.3 Reject any transcript over the word cap as a real question
   - The false-positive guard. A false positive silently replaces a genuine answer with a quiz, which
     is a far worse failure than a missed shortcut
   - _Requirements: 12.3, 12.4, 12.5_
-- [ ] 9.4 Resolve multiple matches by longest phrase
+- [x] 9.4 Resolve multiple matches by longest phrase
   - So "what should i review" cannot be shadowed by a bare "review"
   - _Requirements: 12.6_
-- [ ] 9.5 Check journal intent **before** capture in the pipeline
+- [x] 9.5 Check journal intent **before** capture in the pipeline
   - Less work, and one less privacy exposure for a question about the user's own data
   - _Requirements: 12.8_
-- [ ] 9.6 Pin both directions with tests, including the two recorded near-misses
+- [x] 9.6 Pin both directions with tests, including the two recorded near-misses
   - _Requirements: 12.9_
 
-- [ ] 10. Review queue storage (`T3-3`)
-- [ ] 10.1 Add the `review_queue` table to the existing database, purely additively
+- [x] 10. Review queue storage (`T3-3`)
+- [x] 10.1 Add the `review_queue` table to the existing database, purely additively
   - Same create-if-not-exists contract and journal-mode pragma as the existing store, no `ALTER`
   - Verified: no migration was needed, and the insights path was defined and written by nothing, so
     it was free to use. A rare item where the plan survived contact intact
   - _Requirements: 13.1, 13.2, 13.3_
-- [ ] 10.2 Carry `target_label` so an item can be positional
+- [x] 10.2 Carry `target_label` so an item can be positional
   - Populated from the element that was pointed at, which costs nothing since it is already in the
     result. This is what no flashcard tool can do, because none of them can see the screen
   - _Requirements: 11.1, 11.2, 11.3, 11.4_
-- [ ] 10.3 Implement add, due, grade, recap and stats
+- [x] 10.3 Implement add, due, grade, recap and stats
   - Store dates as ISO strings so text comparison sorts correctly and needs no date functions
   - _Requirements: 13.1_
-- [ ] 10.4 Skip empty questions and answers silently, and swallow every write failure
+- [x] 10.4 Skip empty questions and answers silently, and swallow every write failure
   - Written after the user already has their answer, so a lost entry is invisible while raising is not
   - _Requirements: 13.6, 13.7_
-- [ ] 10.5 Default the feature on, recording why the reproduce-existing-behaviour rule does not apply
+- [x] 10.5 Default the feature on, recording why the reproduce-existing-behaviour rule does not apply
   - Purely additive, and written only after an interaction has already succeeded
   - _Requirements: 13.5_
-- [ ] 10.6 Add the backward-compatibility gate asserting the existing table is untouched
+- [x] 10.6 Add the backward-compatibility gate asserting the existing table is untouched
   - Users have live databases
   - _Requirements: 13.4_
-- [ ] 10.7 Add the degradation test proving a broken journal falls back to a normal answer
+- [x] 10.7 Add the degradation test proving a broken journal falls back to a normal answer
   - _Requirements: 13.8_
 
-- [ ] 11. Insights and spoken recap (`T3-3`)
-- [ ] 11.1 Write the progress summary as plain Markdown the user can edit or delete
+- [x] 11. Insights and spoken recap (`T3-3`)
+- [x] 11.1 Write the progress summary as plain Markdown the user can edit or delete
   - _Requirements: 13.9_
-- [ ] 11.2 Report "not yet reviewed" rather than a zero percentage when nothing is graded
+- [x] 11.2 Report "not yet reviewed" rather than a zero percentage when nothing is graded
   - _Requirements: 13.10_
-- [ ] 11.3 Format the recap for the ear: one sentence, no lists, capped at three topics
+- [x] 11.3 Format the recap for the ear: one sentence, no lists, capped at three topics
   - The cap is a speech constraint rather than a data one — a longer spoken list is unfollowable
   - _Requirements: 13.11_
 
-- [ ] 12. Per-turn diagnostics
-- [ ] 12.1 Write one folder per interaction with a millisecond-stamped log
+- [x] 12. Per-turn diagnostics
+- [x] 12.1 Write one folder per interaction with a millisecond-stamped log
   - _Requirements: 14.1, 14.2_
-- [ ] 12.2 Save screenshots, optionally with a marker drawn at the coordinate
+- [x] 12.2 Save screenshots, optionally with a marker drawn at the coordinate
   - Turns "the pointer was off" from an assertion into an image
   - _Requirements: 14.3_
-- [ ] 12.3 Add the null session with an identical interface
+- [x] 12.3 Add the null session with an identical interface
   - So callers need no branch and no error path, which is the only way an optional feature stays
     optional in practice
   - _Requirements: 14.4_
-- [ ] 12.4 Swallow every diagnostic write failure
+- [x] 12.4 Swallow every diagnostic write failure
   - _Requirements: 14.5_
-- [ ] 12.5 Prune expired folders at session start, scoped to Nimbus's own diagnostics root
+- [x] 12.5 Prune expired folders at session start, scoped to Nimbus's own diagnostics root
   - Treat a locked file as a skip: retention is best effort and must not block an interaction
   - _Requirements: 14.6, 14.7, 14.8_
-- [ ] 12.6 Assert that a privacy-suppressed capture is never written here
+- [x] 12.6 Assert that a privacy-suppressed capture is never written here
   - _Requirements: 14.9_
 
-- [ ] 13. Tests and verification
-- [ ] 13.1 Full suite green with the dotenv neutralisation, zero regressions
-- [ ] 13.2 `--selftest` prints `SELFTEST OK`, and does **not** seed the guide — it only imports
-- [ ] 13.3 Manual verification entry points run and read correctly by eye
-- [ ] 13.4 Live in-house-software comparison recorded
+- [x] 13. Tests and verification
+- [x] 13.1 Full suite green with the dotenv neutralisation, zero regressions
+- [x] 13.2 `--selftest` prints `SELFTEST OK`, and does **not** seed the guide — it only imports
+- [x] 13.3 Manual verification entry points run and read correctly by eye
+- [x] 13.4 Live in-house-software comparison recorded
   - Same question, twice: without the knowledge base *"shift plus command plus r"* — hallucinated, and
     `command` is not even a Windows key. With it, *"control shift q"* — correct, extracted from a Word
     **table**, and it volunteered `F9` from the same table
-- [ ] 13.5 PDF extraction verified against a hand-built PDF containing real text
+- [x] 13.5 PDF extraction verified against a hand-built PDF containing real text
   - A blank page would only have proven "does not raise"
-- [ ] 13.6 Discoverability verified by deleting the guide and confirming it reappears on launch
-- [ ] 13.7 Write the tests for this feature - 146 declared functions
+- [x] 13.6 Discoverability verified by deleting the guide and confirming it reappears on launch
+- [x] 13.7 Write the tests for this feature - 146 declared functions
   - `tests/test_kb.py` (10) - the original flat layout, unchanged - the backward-compatibility gate
   - `tests/test_kb_expansion.py` (61) - folders, extraction, ranking, and the 15-case sanitiser drift guard
   - `tests/test_memory.py` (20) - the block shape under hostile input, and the one-clock-reading rule
