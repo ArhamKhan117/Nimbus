@@ -107,162 +107,162 @@ exists but nothing depends on it, because none of it is built.
 
 ## Tasks
 
-- [ ] 1. Global hotkey listener
-- [ ] 1.1 Implement the observe-only chord listener with independent key-down flags
+- [x] 1. Global hotkey listener
+- [x] 1.1 Implement the observe-only chord listener with independent key-down flags
   - Track Ctrl, Alt and the trigger separately so all six press orders reach `RECORDING`
   - Set `suppress=False` and document why in the module docstring and at the call site
   - Fire callbacks outside the lock; swallow callback exceptions
   - _Requirements: 1.1, 1.2, 1.3, 1.4, 1.5_
-- [ ] 1.2 Write `parse_hotkey` as a pure function with tailored rejection messages
+- [x] 1.2 Write `parse_hotkey` as a pure function with tailored rejection messages
   - Require a modifier plus exactly one trigger from Space/Enter/Tab/A–Z/0–9/F1–F12
   - Reject the three known conflicts by name
   - _Requirements: 1.6, 1.7_
-- [ ] 1.3 Add `set_enabled` gating without touching the installed listener
+- [x] 1.3 Add `set_enabled` gating without touching the installed listener
   - _Requirements: 1.8_
-- [ ] 1.4 Add secondary shortcuts matched on virtual key code
+- [x] 1.4 Add secondary shortcuts matched on virtual key code
   - `shortcut_vk` for A–Z/0–9, `control_character_vk` for the `ord(c) + 64` control-character case
   - _Requirements: 1.9_
 
-- [ ] 2. Capture geometry (`T2-8`)
-- [ ] 2.1 Implement `pick_resolution` with the native check before the aspect test
+- [x] 2. Capture geometry (`T2-8`)
+- [x] 2.1 Implement `pick_resolution` with the native check before the aspect test
   - _Requirements: 8.1, 8.2_
-- [ ] 2.2 Add `_aspect_preserving_size` using one uniform factor, capped at 1.0
+- [x] 2.2 Add `_aspect_preserving_size` using one uniform factor, capped at 1.0
   - Measured: a 3840×1080 monitor previously picked 1920×1080 and was squashed 2× horizontally,
     giving `scale_x=2.0, scale_y=1.0`; 4/6 targets hit at 50 px max error, versus 6/6 at 15 px after
   - _Requirements: 8.3, 8.4_
-- [ ] 2.3 Implement `unscale_model_coords`, clamping before scaling
+- [x] 2.3 Implement `unscale_model_coords`, clamping before scaling
   - _Requirements: 6.1_
-- [ ] 2.4 Sort captures cursor-screen-first and label each with its dimensions
+- [x] 2.4 Sort captures cursor-screen-first and label each with its dimensions
   - _Requirements: 8.5, 8.6_
-- [ ] 2.5 Implement `monitor_containing` with half-open rectangles and a primary fallback
+- [x] 2.5 Implement `monitor_containing` with half-open rectangles and a primary fallback
   - _Requirements: 8.7_
-- [ ] 2.6 Unit-test the maths with no Qt, including every rejection path
+- [x] 2.6 Unit-test the maths with no Qt, including every rejection path
   - _Requirements: 8.1, 8.2, 8.3, 8.4, 8.7_
 
-- [ ] 3. Speech to text
-- [ ] 3.1 Split the lifecycle: `connect` at startup, `start_recording` per press
+- [x] 3. Speech to text
+- [x] 3.1 Split the lifecycle: `connect` at startup, `start_recording` per press
   - _Requirements: 4.1_
-- [ ] 3.2 Implement the finalisation loop with a 2 s deadline and a 100 ms trailing grace
+- [x] 3.2 Implement the finalisation loop with a 2 s deadline and a 100 ms trailing grace
   - Fix the `else: break` that returned a stale partial after 300 ms of silence
   - Rely on `end_of_turn is True` as the authoritative signal, not `turn_is_formatted`
   - _Requirements: 4.2, 4.3, 4.4_
-- [ ] 3.3 Add `set_tts_grace_until` and discard chunks inside the window
+- [x] 3.3 Add `set_tts_grace_until` and discard chunks inside the window
   - Compute and report the audio level first, unconditionally, so the waveform does not freeze
   - _Requirements: 4.5, 4.6_
-- [ ] 3.4 Store and re-raise stream errors so `stop_recording` cannot hang
+- [x] 3.4 Store and re-raise stream errors so `stop_recording` cannot hang
   - _Requirements: 4.7_
-- [ ] 3.5 Add the local `faster-whisper` provider behind the same interface
+- [x] 3.5 Add the local `faster-whisper` provider behind the same interface
   - _Requirements: 4.1 (regression gate: the fully-local path)_
-- [ ] 3.6 Abandon a turn with an empty transcript and return to idle
+- [x] 3.6 Abandon a turn with an empty transcript and return to idle
   - _Requirements: 4.8_
 
-- [ ] 4. Overlapped capture (`T0-7`)
-- [ ] 4.1 Start the press-time capture and memory recall on a background thread
+- [x] 4. Overlapped capture (`T0-7`)
+- [x] 4.1 Start the press-time capture and memory recall on a background thread
   - _Requirements: 2.1_
-- [ ] 4.2 Set the TTS grace window before the chime, with the reason at the call site
+- [x] 4.2 Set the TTS grace window before the chime, with the reason at the call site
   - _Requirements: 2.2_
-- [ ] 4.3 Snapshot the release cursor synchronously in the release handler
+- [x] 4.3 Snapshot the release cursor synchronously in the release handler
   - _Requirements: 2.3_
-- [ ] 4.4 Start the capture worker before the pipeline worker; hand over via `Queue(maxsize=1)`
+- [x] 4.4 Start the capture worker before the pipeline worker; hand over via `Queue(maxsize=1)`
   - _Requirements: 2.4_
-- [ ] 4.5 Implement the reuse-versus-recapture decision at a 150 px threshold
+- [x] 4.5 Implement the reuse-versus-recapture decision at a 150 px threshold
   - Raised from 50 px after session logs showed 100–150 px target hovers re-capturing unnecessarily;
     150 px is about 3 cm on a 200% DPI laptop panel
   - _Requirements: 2.5_
-- [ ] 4.6 Add the 5 s queue timeout with a press-time fallback and an abort path
+- [x] 4.6 Add the 5 s queue timeout with a press-time fallback and an abort path
   - _Requirements: 2.6_
-- [ ] 4.7 Guard the press-time fields with a lock and publish them as one atomic write
+- [x] 4.7 Guard the press-time fields with a lock and publish them as one atomic write
   - `_read_press_state` / `_write_press_state`; reachable when the 0.5 s join times out
   - _Requirements: 2.7_
 
-- [ ] 5. The overlay is never in its own screenshot
-- [ ] 5.1 Collapse three capture call sites into one guarded helper
+- [x] 5. The overlay is never in its own screenshot
+- [x] 5.1 Collapse three capture call sites into one guarded helper
   - _Requirements: 3.1, 3.4_
-- [ ] 5.2 Restore the overlay in a `finally` block
+- [x] 5.2 Restore the overlay in a `finally` block
   - _Requirements: 3.2_
-- [ ] 5.3 Replace the fixed 50 ms sleep with `DwmFlush()`, keeping the sleep as a fallback
+- [x] 5.3 Replace the fixed 50 ms sleep with `DwmFlush()`, keeping the sleep as a fallback
   - Measured over 7 cycles: 174.9 ms median → 119.8 ms, a 55 ms saving per interaction
   - Safety proved by pixel count, not assumed: 413 px of Nimbus orange with the overlay visible,
     332 px with either wait, identical across five runs
   - _Requirements: 3.3_
-- [ ] 5.4 Make the chat panel's hide/show calls unconditional no-ops when exclusion is active
+- [x] 5.4 Make the chat panel's hide/show calls unconditional no-ops when exclusion is active
   - _Requirements: 3.5_
-- [ ] 5.5 Delete the hide/show cycle entirely (`S-9`)
+- [-] 5.5 Delete the hide/show cycle entirely (`S-9`)
   - **Attempted and abandoned.** `SetWindowDisplayAffinity` returns 0 on a `WS_EX_LAYERED` window,
     and the overlay must be layered to be translucent. Recorded so nobody tries it again
   - _Requirements: 3.1_
 
-- [ ] 6. Streaming answer and speech
-- [ ] 6.1 Flush complete sentences to speech during the stream
+- [x] 6. Streaming answer and speech
+- [x] 6.1 Flush complete sentences to speech during the stream
   - _Requirements: 5.1_
-- [ ] 6.2 Add the bracket tag-safety guard, and skip it for structured providers
+- [x] 6.2 Add the bracket tag-safety guard, and skip it for structured providers
   - _Requirements: 5.2, 5.5_
-- [ ] 6.3 Compute and flush the tail from the tag-stripped text; strip outside the `try`
+- [x] 6.3 Compute and flush the tail from the tag-stripped text; strip outside the `try`
   - _Requirements: 5.3, 5.4_
-- [ ] 6.4 Build the prefetch/playback pair with a size-1 queue and an epoch guard
+- [x] 6.4 Build the prefetch/playback pair with a size-1 queue and an epoch guard
   - _Requirements: 5.6_
-- [ ] 6.5 Implement the six-pronged `stop()` and prove no audio plays after it returns
+- [x] 6.5 Implement the six-pronged `stop()` and prove no audio plays after it returns
   - _Requirements: 5.7_
 
-- [ ] 7. Pointing
-- [ ] 7.1 Emit the physical coordinate with its monitor descriptor after hiding the spinner
+- [x] 7. Pointing
+- [x] 7.1 Emit the physical coordinate with its monitor descriptor after hiding the spinner
   - _Requirements: 6.1, 6.2_
-- [ ] 7.2 Place no pointer for a conceptual question
+- [x] 7.2 Place no pointer for a conceptual question
   - _Requirements: 6.3_
-- [ ] 7.3 Discard any coordinate on a voice-only turn
+- [x] 7.3 Discard any coordinate on a voice-only turn
   - _Requirements: 6.4_
-- [ ] 7.4 Implement the Bézier flight, the 3 s dwell and the return to the mouse
+- [x] 7.4 Implement the Bézier flight, the 3 s dwell and the return to the mouse
   - _Requirements: 6.5_
-- [ ] 7.5 Add the native-resolution refinement crop with a keep-the-original failure path
+- [x] 7.5 Add the native-resolution refinement crop with a keep-the-original failure path
   - _Requirements: 6.6_
 
-- [ ] 8. Cancellation (`T2-2`)
-- [ ] 8.1 Route Escape through the hotkey listener, gated on an in-flight check
+- [x] 8. Cancellation (`T2-2`)
+- [x] 8.1 Route Escape through the hotkey listener, gated on an in-flight check
   - Handled before the state machine, without taking the lock, with all exceptions swallowed
   - _Requirements: 7.1, 7.3_
-- [ ] 8.2 Define "in flight" as worker alive OR speech still playing
+- [x] 8.2 Define "in flight" as worker alive OR speech still playing
   - _Requirements: 7.2_
-- [ ] 8.3 Reuse the press path's abandon sequence, minus anything that starts a new turn
+- [x] 8.3 Reuse the press path's abandon sequence, minus anything that starts a new turn
   - _Requirements: 7.4, 7.5_
-- [ ] 8.4 Place all 11 cancel checkpoints, each with a comment naming the race it prevents
+- [x] 8.4 Place all 11 cancel checkpoints, each with a comment naming the race it prevents
   - Two of them exist specifically because the grid locator takes 5–10 s on Ollama and would
     otherwise emit a pointer and a memory record for an abandoned turn
   - _Requirements: 7.6_
-- [ ] 8.5 Cancel a live worker at press time, before clearing the overlay
+- [x] 8.5 Cancel a live worker at press time, before clearing the overlay
   - _Requirements: 7.7_
-- [ ] 8.6 Write `tests/test_cancel.py` covering every checkpoint (26 tests)
+- [x] 8.6 Write `tests/test_cancel.py` covering every checkpoint (26 tests)
   - _Requirements: 7.1–7.7_
 
-- [ ] 9. Single instance and shutdown
-- [ ] 9.1 Acquire a named mutex before `QApplication`; signal and exit if it exists
+- [x] 9. Single instance and shutdown
+- [x] 9.1 Acquire a named mutex before `QApplication`; signal and exit if it exists
   - _Requirements: 9.1, 9.2_
-- [ ] 9.2 Declare explicit ctypes `argtypes` and `restype` for every Win32 call
+- [x] 9.2 Declare explicit ctypes `argtypes` and `restype` for every Win32 call
   - _Requirements: 9.3_
-- [ ] 9.3 Add the show-window event and its watcher thread so a second launch raises the window
+- [x] 9.3 Add the show-window event and its watcher thread so a second launch raises the window
   - _Requirements: 9.2_
-- [ ] 9.4 Route the tray's Quit and the Account page's Quit into one shutdown sequence
+- [x] 9.4 Route the tray's Quit and the Account page's Quit into one shutdown sequence
   - _Requirements: 9.4_
 
-- [ ] 10. Diagnostics
-- [ ] 10.1 Write one folder per turn with a millisecond-stamped log and the screenshots
+- [x] 10. Diagnostics
+- [x] 10.1 Write one folder per turn with a millisecond-stamped log and the screenshots
   - _Requirements: 10.1_
-- [ ] 10.2 Log the providers actually used, replacing the hardcoded labels that lied
+- [x] 10.2 Log the providers actually used, replacing the hardcoded labels that lied
   - _Requirements: 10.2_
-- [ ] 10.3 Log the capture decision, memory size, KB size, coordinate and first audible chunk
+- [x] 10.3 Log the capture decision, memory size, KB size, coordinate and first audible chunk
   - _Requirements: 10.3_
-- [ ] 10.4 Add the no-op session with an identical interface
+- [x] 10.4 Add the no-op session with an identical interface
   - _Requirements: 10.4_
-- [ ] 10.5 Prune expired folders on startup, treating a locked file as a skip
+- [x] 10.5 Prune expired folders on startup, treating a locked file as a skip
   - _Requirements: 10.5_
-- [ ] 10.6 Log stripped malformed tags rather than discarding them silently (`T0-3`)
+- [x] 10.6 Log stripped malformed tags rather than discarding them silently (`T0-3`)
   - _Requirements: 10.6_
 
-- [ ] 11. Tests and verification
-- [ ] 11.1 Full suite green with the dotenv neutralisation, zero regressions
-- [ ] 11.2 `--selftest` prints `SELFTEST OK`
-- [ ] 11.3 Manual smoke test: all five steps, on real hardware
-- [ ] 11.4 Latency measured with `tools/bench.py` against a recorded baseline
-- [ ] 11.5 Write the tests for this feature - 362 declared functions
+- [x] 11. Tests and verification
+- [x] 11.1 Full suite green with the dotenv neutralisation, zero regressions
+- [x] 11.2 `--selftest` prints `SELFTEST OK`
+- [x] 11.3 Manual smoke test: all five steps, on real hardware
+- [x] 11.4 Latency measured with `tools/bench.py` against a recorded baseline
+- [x] 11.5 Write the tests for this feature - 362 declared functions
   - `tests/test_hotkey.py` (15) - chord parsing, all six press orders, the three rejected conflicts
   - `tests/test_capture.py` (34) - resolution choice, the uniform-scale invariant, coordinate unscaling
   - `tests/test_stt.py` (21) - the finalisation deadline, the trailing grace, the acoustic guard
@@ -277,52 +277,52 @@ exists but nothing depends on it, because none of it is built.
     saying why, or a real regression gets laundered into a green suite
   - _Requirements: 1.1-10.6_
 
-- [ ] 12. Speech-to-speech paths
-- [ ] 12.1 Build `gemini_live.py` outside the `AIClient` hierarchy, with the reason recorded
+- [x] 12. Speech-to-speech paths
+- [x] 12.1 Build `gemini_live.py` outside the `AIClient` hierarchy, with the reason recorded
   - One socket carries audio in and audio out, so there is no intermediate text to sentence-chunk
     and no transcript to hand onward. Forcing the interface would mean inventing one
   - _Requirements: 11.1_
-- [ ] 12.2 Expose `connect / start_turn / respond / stop / close` so the orchestrator needs no branching
+- [x] 12.2 Expose `connect / start_turn / respond / stop / close` so the orchestrator needs no branching
   - _Requirements: 11.2_
-- [ ] 12.3 Add `realtime.py` on the same five-method shape
+- [x] 12.3 Add `realtime.py` on the same five-method shape
   - _Requirements: 11.2, 11.3_
-- [ ] 12.4 Put both behind default-off settings, switchable without a rebuild
+- [x] 12.4 Put both behind default-off settings, switchable without a rebuild
   - _Requirements: 11.3_
-- [ ] 12.5 Do not open the streaming recogniser while a socket is active
+- [x] 12.5 Do not open the streaming recogniser while a socket is active
   - Two microphones fighting: both claim the same input device, neither works, and neither produces
     an error worth reading. Cost most of a day before the cause was found
   - _Requirements: 11.4_
-- [ ] 12.6 Route the socket's captures through the existing Privacy Guard choke point
+- [x] 12.6 Route the socket's captures through the existing Privacy Guard choke point
   - _Requirements: 11.5_
-- [ ] 12.7 Apply the Vertex backend switch identically, so voice and text cannot split endpoints
+- [x] 12.7 Apply the Vertex backend switch identically, so voice and text cannot split endpoints
   - _Requirements: 11.6_
-- [ ] 12.8 Return to idle on a mid-turn socket close, and leave the next turn clean
+- [x] 12.8 Return to idle on a mid-turn socket close, and leave the next turn clean
   - _Requirements: 11.7_
-- [ ] 12.9 Route socket playback through the same cancellation path as text-to-speech
+- [x] 12.9 Route socket playback through the same cancellation path as text-to-speech
   - _Requirements: 11.8_
-- [ ] 12.10 Register both modules in the hidden-import list **and** the selftest's runtime list
+- [x] 12.10 Register both modules in the hidden-import list **and** the selftest's runtime list
   - `gemini_live` shipped broken through exactly this gap. A function-local import behind a
     default-off toggle is invisible to the static graph and the selftest at the same time
   - _Requirements: 11.9_
 
-- [ ] 13. Provider factory and warmup
-- [ ] 13.1 Resolve both speech implementations from a settings string in one factory
+- [x] 13. Provider factory and warmup
+- [x] 13.1 Resolve both speech implementations from a settings string in one factory
   - _Requirements: 12.1, 12.9_
-- [ ] 13.2 Implement streaming cloud recognition and local recognition behind one ABC
+- [x] 13.2 Implement streaming cloud recognition and local recognition behind one ABC
   - _Requirements: 12.2_
-- [ ] 13.3 Implement two cloud voices and one local voice behind one ABC
+- [x] 13.3 Implement two cloud voices and one local voice behind one ABC
   - _Requirements: 12.3_
-- [ ] 13.4 Make the fully-local combination a regression gate rather than a fallback
+- [x] 13.4 Make the fully-local combination a regression gate rather than a fallback
   - Ollama plus faster-whisper plus Kokoro, no key and no network. Invariant 29: a change that only
     works against a cloud provider is not finished
   - _Requirements: 12.4_
-- [ ] 13.5 Download the local voice weights on first use into a documented path
+- [x] 13.5 Download the local voice weights on first use into a documented path
   - Roughly 336 MB into `~/.nimbus/kokoro/` — larger than the rest of the installer, so not bundled.
     The path is documented so a user can delete it and reclaim the space
   - _Requirements: 12.5, 12.6_
-- [ ] 13.6 Warm each provider on a background thread at startup, swallowing failures
+- [x] 13.6 Warm each provider on a background thread at startup, swallowing failures
   - _Requirements: 12.7, 12.8_
-- [ ] 13.7 Stop excluding `av` and `onnxruntime` from the bundle
+- [x] 13.7 Stop excluding `av` and `onnxruntime` from the bundle
   - faster-whisper needs PyAV and Kokoro needs ONNX Runtime. `av` needs special handling because
     `collect_all` misclassifies its `.pyd` as data and its FFmpeg DLLs live in a sibling `av.libs`
   - _Requirements: 12.2, 12.3_
