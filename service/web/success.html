@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<!--
+  Post-purchase page. Shows the licence key, then the download, then how to activate.
+
+  That order is deliberate. The key is the thing a tester is anxious about the moment they have
+  paid, and it is the thing they will lose if we bury it under a hero image. It is also the only
+  place they will see it until we send mail, which is why there is a copy button and a plain-text
+  fallback rather than a styled blob they have to select by hand.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>You're in — Nimbus</title>
+<link rel="icon" href="/static/nimbus_mark.png">
+<style>
+  :root{
+    --bg:#0B0B0D; --elevated:#141417; --sunken:#08080A;
+    --accent:#FF7A1A; --accent-hover:#FF8F3D; --accent-deep:#D9600A;
+    --text:#F5F5F7; --text-2:#A1A1AA; --text-3:#8A8A94;
+    --border:#26262B; --border-strong:#33333A;
+    --radius:12px; --radius-control:8px;
+    --font:"Segoe UI Variable Text","Segoe UI",system-ui,-apple-system,sans-serif;
+    --mono:"Cascadia Mono",Consolas,ui-monospace,monospace;
+  }
+  *{box-sizing:border-box}
+  body{margin:0; background:var(--bg); color:var(--text); font-family:var(--font); font-size:17px; line-height:1.55}
+  a{color:var(--accent); text-decoration:none}
+  a:hover{color:var(--accent-hover)}
+  .wrap{max-width:680px; margin:0 auto; padding:0 24px}
+  header{border-bottom:1px solid var(--border)}
+  header .wrap{display:flex; align-items:center; gap:12px; height:60px}
+  .mark{width:28px;height:28px}
+  .wordmark{font-size:17px; font-weight:600; letter-spacing:.2px}
+
+  .card{
+    background:
+      radial-gradient(120% 120% at 0% 0%, rgba(255,122,26,.07) 0%, rgba(255,122,26,0) 45%),
+      linear-gradient(160deg,#17161a 0%,#141417 45%,#101013 100%);
+    border:1px solid var(--border); border-top:1px solid rgba(255,255,255,.055);
+    border-radius:var(--radius); padding:24px; margin:0 0 18px;
+  }
+  h1{font-size:clamp(28px,4.4vw,40px); margin:44px 0 10px; letter-spacing:-.4px}
+  .lead{color:var(--text-2); margin:0 0 30px}
+  .eyebrow{font-size:12px; font-weight:600; letter-spacing:.8px; text-transform:uppercase; color:var(--text-3); margin:0 0 10px}
+
+  .keyrow{display:flex; gap:10px; align-items:center; flex-wrap:wrap}
+  .key{
+    flex:1 1 260px; font-family:var(--mono); font-size:20px; letter-spacing:1px;
+    background:var(--sunken); border:1px solid var(--border-strong); border-radius:var(--radius-control);
+    padding:14px 16px; color:var(--text); user-select:all;
+  }
+  .btn{
+    display:inline-block; padding:11px 20px; border-radius:var(--radius-control); font-weight:600;
+    font-size:16px; border:1px solid var(--border-strong); cursor:pointer;
+    background:linear-gradient(180deg,#1f1f26,#17171c); color:var(--text); font-family:inherit;
+  }
+  .btn:hover{border-color:var(--accent)}
+  .btn-primary{background:linear-gradient(180deg,var(--accent-hover),var(--accent) 55%,var(--accent-deep)); border:1px solid var(--accent-deep); color:#1A0E04}
+  .btn-primary:hover{filter:brightness(1.06)}
+  .note{color:var(--text-3); font-size:14px; margin:12px 0 0}
+  ol{margin:0; padding-left:22px; color:var(--text-2)}
+  ol li{margin:8px 0}
+  .fail{border-left:2px solid var(--accent-deep)}
+  [hidden]{display:none !important}
+  footer{border-top:1px solid var(--border); margin-top:40px; padding:28px 0; color:var(--text-3); font-size:14px}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="wrap">
+    <img class="mark" src="/static/nimbus_mark.png" alt="">
+    <span class="wordmark">Nimbus</span>
+  </div>
+</header>
+
+<div class="wrap">
+  <h1>You're in.</h1>
+  <p class="lead">Your subscription is active. Here is your licence key — keep it somewhere safe.</p>
+
+  <div class="card" id="keycard">
+    <p class="eyebrow">Your licence key</p>
+    <div class="keyrow">
+      <div class="key" id="key">Loading&hellip;</div>
+      <button class="btn" id="copy" type="button">Copy</button>
+    </div>
+    <p class="note" id="email"></p>
+  </div>
+
+  <div class="card fail" id="problem" hidden>
+    <p class="eyebrow">We could not show your key here</p>
+    <p id="problemtext" style="margin:0 0 10px; color:var(--text-2)"></p>
+    <p style="margin:0; color:var(--text-2)">
+      Your payment is safe and your licence exists. Email
+      <a href="mailto:wolfhoghd@gmail.com">wolfhoghd@gmail.com</a> with the address you paid with and we will
+      send the key straight back.
+    </p>
+  </div>
+
+  <div class="card">
+    <p class="eyebrow">Next</p>
+    <ol>
+      <li><a href="/download">Download Nimbus for Windows</a> and run the installer.</li>
+      <li>On first launch, choose <strong>I have a licence key</strong>.</li>
+      <li>Paste the key above. Nimbus checks it once and then works offline.</li>
+    </ol>
+    <p style="margin:18px 0 0"><a class="btn btn-primary" href="/download">Download for Windows</a></p>
+    <p class="note">Your licence covers 3 computers. Move a seat any time from
+       Account &rarr; Deactivate this device.</p>
+  </div>
+</div>
+
+<footer><div class="wrap">&copy; Nimbus &middot; <a href="mailto:wolfhoghd@gmail.com">wolfhoghd@gmail.com</a></div></footer>
+
+<script>
+  // The session id is the only credential involved. Stripe issues it, it is unguessable, and the
+  // server checks with Stripe that the session is paid before returning anything -- so there is no
+  // account to create and no password to store on either side.
+  const sessionId = new URLSearchParams(location.search).get("session_id") || "";
+  const keyEl = document.getElementById("key");
+
+  function fail(message) {
+    document.getElementById("keycard").hidden = true;
+    document.getElementById("problemtext").textContent = message;
+    document.getElementById("problem").hidden = false;
+  }
+
+  if (!sessionId) {
+    fail("This page was opened without a checkout session.");
+  } else {
+    fetch("/licence-key?session_id=" + encodeURIComponent(sessionId))
+      .then(function (response) {
+        return response.json().then(function (body) {
+          if (!response.ok) { throw new Error(body.detail || "Unexpected response."); }
+          return body;
+        });
+      })
+      .then(function (body) {
+        keyEl.textContent = body.key;
+        document.getElementById("email").textContent = "Registered to " + body.email + ".";
+      })
+      .catch(function (error) { fail(error.message); });
+  }
+
+  document.getElementById("copy").addEventListener("click", function () {
+    const button = this;
+    navigator.clipboard.writeText(keyEl.textContent.trim()).then(function () {
+      button.textContent = "Copied";
+      setTimeout(function () { button.textContent = "Copy"; }, 1800);
+    });
+  });
+</script>
+
+</body>
+</html>

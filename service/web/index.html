@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<!--
+  Nimbus landing page.
+
+  Palette, type and radii are lifted from `theme.py` so the site and the app are recognisably the
+  same product: BG_BASE #0B0B0D, BG_ELEVATED #141417, ACCENT #FF7A1A, TEXT_PRIMARY #F5F5F7,
+  TEXT_SECONDARY #A1A1AA, BORDER #26262B, RADIUS_CARD 12px. The card treatment is the same
+  warm-cornered gradient plus grain the desktop cards use.
+
+  One page, no framework, no build step. It has to load fast on a phone on slow mobile data, which is
+  the actual first-impression constraint here.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Nimbus — ask about anything on your screen</title>
+<meta name="description" content="Hold a key, ask a question out loud, and Nimbus answers about whatever is on your screen — and points at it. Seven-day free trial.">
+<link rel="icon" href="/static/nimbus_mark.png">
+<style>
+  :root{
+    --bg:#0B0B0D; --elevated:#141417; --raised:#191920; --sunken:#08080A;
+    --accent:#FF7A1A; --accent-hover:#FF8F3D; --accent-deep:#D9600A;
+    --text:#F5F5F7; --text-2:#A1A1AA; --text-3:#8A8A94;
+    --border:#26262B; --border-strong:#33333A;
+    --radius:12px; --radius-control:8px;
+    --font:"Segoe UI Variable Text","Segoe UI",system-ui,-apple-system,sans-serif;
+    --mono:"Cascadia Mono",Consolas,ui-monospace,monospace;
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0; background:var(--bg); color:var(--text); font-family:var(--font);
+    font-size:17px; line-height:1.55; -webkit-font-smoothing:antialiased;
+  }
+  a{color:var(--accent); text-decoration:none}
+  a:hover{color:var(--accent-hover)}
+  .wrap{max-width:1080px; margin:0 auto; padding:0 24px}
+
+  /* The card treatment from theme.surface_gradient(): a warm accent-tinted corner falling to a
+     cool neutral, with the same faint grain the app puts over its surfaces. */
+  .card{
+    background:
+      radial-gradient(120% 120% at 0% 0%, rgba(255,122,26,.07) 0%, rgba(255,122,26,0) 45%),
+      linear-gradient(160deg,#17161a 0%,#141417 45%,#101013 100%);
+    border:1px solid var(--border);
+    border-top:1px solid rgba(255,255,255,.055);
+    border-radius:var(--radius);
+    padding:24px;
+  }
+
+  header{position:sticky; top:0; z-index:10; background:rgba(11,11,13,.86); backdrop-filter:blur(12px); border-bottom:1px solid var(--border)}
+  header .wrap{display:flex; align-items:center; gap:12px; height:60px}
+  .mark{width:28px;height:28px}
+  .wordmark{font-size:17px; font-weight:600; letter-spacing:.2px}
+  header nav{margin-left:auto; display:flex; gap:22px; align-items:center}
+  header nav a{color:var(--text-2); font-size:15px; font-weight:500}
+  header nav a:hover{color:var(--text)}
+
+  .btn{
+    display:inline-block; padding:11px 20px; border-radius:var(--radius-control);
+    font-weight:600; font-size:16px; border:1px solid var(--border-strong);
+    background:linear-gradient(180deg,#1f1f26,#17171c); color:var(--text); cursor:pointer;
+  }
+  .btn:hover{border-color:var(--accent); color:var(--text)}
+  .btn-primary{
+    background:linear-gradient(180deg,var(--accent-hover),var(--accent) 55%,var(--accent-deep));
+    border:1px solid var(--accent-deep); color:#1A0E04;
+  }
+  .btn-primary:hover{color:#1A0E04; filter:brightness(1.06)}
+
+  .hero{padding:84px 0 56px; text-align:center}
+  .hero h1{font-size:clamp(34px,5.2vw,60px); line-height:1.08; margin:0 0 18px; letter-spacing:-.5px}
+  .hero h1 em{font-style:normal; color:var(--accent)}
+  .hero p.lead{font-size:clamp(17px,2.2vw,21px); color:var(--text-2); max-width:660px; margin:0 auto 30px}
+  .cta{display:flex; gap:12px; justify-content:center; flex-wrap:wrap}
+  .fineprint{margin-top:14px; color:var(--text-3); font-size:14px}
+
+  section{padding:56px 0}
+  h2{font-size:clamp(24px,3vw,32px); margin:0 0 10px; letter-spacing:-.2px}
+  .section-lead{color:var(--text-2); max-width:640px; margin:0 0 30px}
+
+  .grid{display:grid; gap:18px}
+  .grid-3{grid-template-columns:repeat(auto-fit,minmax(270px,1fr))}
+  .grid-2{grid-template-columns:repeat(auto-fit,minmax(320px,1fr))}
+  .card h3{margin:0 0 8px; font-size:18px}
+  .card p{margin:0; color:var(--text-2); font-size:16px}
+  .eyebrow{
+    font-size:12px; font-weight:600; letter-spacing:.8px; text-transform:uppercase;
+    color:var(--text-3); margin:0 0 8px;
+  }
+
+  .price{display:flex; align-items:baseline; gap:8px; margin:6px 0 18px}
+  .price strong{font-size:44px; letter-spacing:-1px}
+  .price span{color:var(--text-2)}
+  ul.ticks{list-style:none; margin:0 0 22px; padding:0}
+  ul.ticks li{padding:7px 0 7px 26px; position:relative; color:var(--text-2)}
+  ul.ticks li::before{content:"\2713"; position:absolute; left:0; color:var(--accent); font-weight:700}
+
+  .steps{counter-reset:s}
+  .steps .card{position:relative; padding-left:64px}
+  .steps .card::before{
+    counter-increment:s; content:counter(s);
+    position:absolute; left:22px; top:24px; width:26px; height:26px; border-radius:50%;
+    background:rgba(255,122,26,.14); border:1px solid rgba(255,122,26,.45);
+    color:var(--accent); font-weight:700; font-size:14px; display:grid; place-items:center;
+  }
+
+  .privacy{border-left:2px solid rgba(255,122,26,.45)}
+  code{font-family:var(--mono); background:var(--sunken); border:1px solid var(--border); border-radius:6px; padding:2px 6px; font-size:14px}
+
+  footer{border-top:1px solid var(--border); padding:36px 0; color:var(--text-3); font-size:14px}
+  footer .wrap{display:flex; gap:18px; flex-wrap:wrap; align-items:center}
+  footer nav{margin-left:auto; display:flex; gap:18px}
+
+  @media (max-width:640px){
+    .hero{padding:56px 0 40px}
+    header nav a:not(.btn){display:none}
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="wrap">
+    <img class="mark" src="/static/nimbus_mark.png" alt="">
+    <span class="wordmark">Nimbus</span>
+    <nav>
+      <a href="#how">How it works</a>
+      <a href="#pricing">The plan</a>
+      <a href="#privacy">Privacy</a>
+      <a class="btn btn-primary" href="/download">Download</a>
+    </nav>
+  </div>
+</header>
+
+<div class="wrap">
+
+  <section class="hero">
+    <h1>Ask about <em>anything on your screen</em>.<br>Out loud.</h1>
+    <p class="lead">
+      Hold one key, ask your question, and Nimbus answers about whatever you are looking at —
+      then moves your pointer to the exact thing it is talking about.
+    </p>
+    <div class="cta">
+      <a class="btn btn-primary" href="/download">Download for Windows</a>
+      <a class="btn" href="#pricing">See the plan</a>
+    </div>
+    <p class="fineprint">7-day free trial · no card needed · 2 devices</p>
+  </section>
+
+  <section id="how">
+    <h2>How it works</h2>
+    <p class="section-lead">Three keys and your voice. No copying screenshots into a chat window.</p>
+    <div class="grid grid-3 steps">
+      <div class="card">
+        <h3>Hold Ctrl + Alt + Space</h3>
+        <p>Anywhere, in any application. Nimbus listens while you hold it and stops when you let go.</p>
+      </div>
+      <div class="card">
+        <h3>Ask in plain words</h3>
+        <p>“What does this setting do?” “Why is this render failing?” “Where do I export from here?”</p>
+      </div>
+      <div class="card">
+        <h3>It answers and points</h3>
+        <p>You hear the answer, and your pointer flies to the button, menu or field it means.</p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Built for the software nobody wrote a tutorial for</h2>
+    <p class="section-lead">
+      Nimbus already knows mainstream tools. For the rest — an in-house system, a lab
+      instrument's control panel, a plugin with no documentation — you drop your notes in a folder
+      and it reads them.
+    </p>
+    <div class="grid grid-2">
+      <div class="card">
+        <p class="eyebrow">Teaching mode</p>
+        <h3>It draws on the screen</h3>
+        <p>Boxes round the control you need, everything else dimmed, numbered steps for a sequence,
+           and an arrow from the mistake to the fix.</p>
+      </div>
+      <div class="card">
+        <p class="eyebrow">Remembers</p>
+        <h3>Per-application memory</h3>
+        <p>What you asked in one program stays with that program, as plain Markdown files you can
+           read, edit or delete.</p>
+      </div>
+      <div class="card">
+        <p class="eyebrow">Reviews</p>
+        <h3>Quiz me</h3>
+        <p>Say “quiz me” and Nimbus asks you back — against your live screen, which a flashcard
+           app cannot do.</p>
+      </div>
+      <div class="card">
+        <p class="eyebrow">Works offline</p>
+        <h3>Fully local option</h3>
+        <p>Run the model, speech recognition and voice entirely on your machine. Nothing leaves it,
+           and no API key is needed.</p>
+      </div>
+    </div>
+  </section>
+
+  <section id="privacy">
+    <h2>Privacy, stated plainly</h2>
+    <div class="card privacy">
+      <ul class="ticks">
+        <li><strong>Privacy Guard is on by default.</strong> When a password manager, sign-in page or
+            other sensitive window is in front, Nimbus answers without taking a screenshot — and the
+            app shows you how many times it has done that.</li>
+        <li><strong>Your API keys stay on your machine</strong>, in Windows Credential Manager.
+            Nimbus has no server that sees them.</li>
+        <li><strong>Screen contents go only to the model provider you chose</strong>, and not at all
+            on the fully-local setup.</li>
+        <li><strong>The chat panel is excluded from screen capture</strong>, so your conversation
+            cannot end up in a screenshot or a screen share.</li>
+      </ul>
+      <p>The only thing this site stores about your computer is a salted hash used to count your
+         devices. Never a raw hardware identifier.</p>
+    </div>
+  </section>
+
+  <section id="pricing">
+    <h2>The plan</h2>
+    <p class="section-lead">One plan, and nothing held back. Billing is not switched on, so there is
+       nothing to pay.</p>
+    <div class="grid grid-2">
+      <div class="card">
+        <p class="eyebrow">Nimbus</p>
+        <div class="price"><strong>Free</strong><span>while it is in development</span></div>
+        <ul class="ticks">
+          <li>7-day trial, no card</li>
+          <li>Up to 2 of your own computers</li>
+          <li>Bring your own model keys — or run it fully offline</li>
+          <li>Every feature. No tiers, no add-ons</li>
+        </ul>
+        <div class="cta" style="justify-content:flex-start">
+          <a class="btn btn-primary" href="/download">Start the trial</a>
+        </div>
+        <p class="fineprint">The trial needs no card. No payment rail is connected on this
+           deployment.</p>
+      </div>
+      <div class="card">
+        <p class="eyebrow">Licensing</p>
+        <h3>Device-bound, verified offline</h3>
+        <p>A licence covers two of your own computers, is signed rather than checked over the
+           network, and keeps working for 14 days with no connection at all.</p>
+        <p style="margin-top:14px"><a href="mailto:wolfhoghd@gmail.com">wolfhoghd@gmail.com</a></p>
+        <p class="fineprint">Move a seat any time from Account → Deactivate this device.</p>
+      </div>
+    </div>
+    <p class="fineprint">
+      Nimbus is a Windows desktop application. Your licence covers 2 devices; you can move a seat
+      from Account → Deactivate this device.
+    </p>
+  </section>
+
+</div>
+
+<footer>
+  <div class="wrap">
+    <span>© Nimbus</span>
+    <nav>
+      <a href="#privacy">Privacy</a>
+      <a href="/download">Download</a>
+      <a href="mailto:wolfhoghd@gmail.com">Contact</a>
+    </nav>
+  </div>
+</footer>
+
+</body>
+</html>
