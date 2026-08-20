@@ -1,0 +1,143 @@
+name: Release Nimbus
+
+# Releasing is a decision, so it is triggered on purpose rather than by ordinary work.
+#
+# A push to `main` does not publish. Building the installer takes several minutes and produces a
+# 150 MB asset, and a release is the thing a person downloads and runs, so it should not be a side
+# effect of committing a typo fix. Publish either by pushing a `v*` tag or from the Actions tab.
+#
+# The version still comes from the run number, so a manual run produces the next number in sequence
+# and a tag push produces one matching the tag it was asked for.
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: nimbus-release-main
+  cancel-in-progress: false
+
+jobs:
+  release:
+    name: Test, package, and publish
+    runs-on: windows-latest
+    env:
+      NIMBUS_DISABLE_DOTENV: "1"
+      NIMBUS_DISABLE_UPDATES: "1"
+      PYTHONUTF8: "1"
+
+      # Installers publish to **this** repository's releases, and the token is the one GitHub injects.
+      #
+      # A public repository serves both release assets and API reads to an unauthenticated caller,
+      # which is what the download link and the in-app update check both rely on: the update check
+      # calls the API with no credentials, so anything it cannot read it would report as "up to date".
+      #
+      # `github.token` is scoped to this repository and is always present, so there is no secret to
+      # forget and no credential to rotate.
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.13
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+
+      - name: Install Python dependencies
+        run: python -m pip install --upgrade pip; python -m pip install -r requirements.txt "pyinstaller>=6.20"
+
+      - name: Test in a clean environment
+        run: python -m pytest -q
+
+      - name: Set automated release version
+        shell: pwsh
+        run: |
+          $version = "1.0.$env:GITHUB_RUN_NUMBER"
+          "NIMBUS_VERSION=$version" >> $env:GITHUB_ENV
+          Set-Content version.py "APP_VERSION = `"$version`"" -Encoding utf8
+
+      - name: Bake the licence public key into the build
+        shell: pwsh
+        env:
+          # A repository *variable*, not a secret: this is the public half of the licence keypair. It
+          # verifies signatures and cannot create them, so it is safe in a shipped binary and safe in
+          # a build log. The private half exists only in the licence service's environment.
+          NIMBUS_LICENCE_PUBLIC_KEY: ${{ vars.NIMBUS_LICENCE_PUBLIC_KEY }}
+        run: |
+          if ([string]::IsNullOrWhiteSpace($env:NIMBUS_LICENCE_PUBLIC_KEY)) {
+            Write-Host "::warning::NIMBUS_LICENCE_PUBLIC_KEY is not set. This installer will refuse every licence key. Set it under Settings -> Secrets and variables -> Actions -> Variables."
+          } else {
+            python -m tools.set_licence_key --public-key $env:NIMBUS_LICENCE_PUBLIC_KEY
+          }
+
+      - name: Build Nimbus
+        run: python -m PyInstaller nimbus.spec --noconfirm
+
+      - name: Verify frozen runtime imports
+        shell: pwsh
+        run: |
+          $process = Start-Process -FilePath .\dist\Nimbus\Nimbus.exe -ArgumentList "--selftest" -PassThru -Wait
+          if ($process.ExitCode -ne 0) { exit $process.ExitCode }
+
+      - name: Install Inno Setup
+        shell: pwsh
+        run: choco install innosetup --no-progress --yes
+
+      - name: Build installer
+        shell: pwsh
+        run: iscc "/DAppVersion=$env:NIMBUS_VERSION" installer\nimbus.iss
+
+      - name: Create or update GitHub Release
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          $tag = "v$env:NIMBUS_VERSION"
+
+          # There is deliberately no credential check here. `github.token` is injected by Actions on
+          # every run and cannot be absent, so a guard for it would be dead code pretending to protect
+          # something, and a guard that can never fire is worse than none: it reads as though the case
+          # is handled.
+          #
+          # `--generate-notes` is safe because the release is created in the repository that holds the
+          # commits, so the changelog describes the build it is attached to.
+          gh release view $tag 2>$null
+          if ($LASTEXITCODE -ne 0) {
+            gh release create $tag `
+              --title "Nimbus $env:NIMBUS_VERSION" --latest --generate-notes
+            if ($LASTEXITCODE -ne 0) {
+              Write-Host "::error::could not create release $tag"
+              exit 1
+            }
+          }
+          # Two names for one file, on purpose.
+          #
+          # The versioned asset is what a person downloads and can point at later ("I'm on 1.0.10").
+          # The stable copy exists so `releases/latest/download/Nimbus-Windows-Setup.exe` resolves, which
+          # is the only form that lets the website link to "the current installer" without an environment
+          # variable edit per release. GitHub matches that path on the *exact* asset filename, so with only
+          # the versioned name it returned a 404 page — and the Download button sent people to it.
+          $versioned = "installer\Output\Nimbus-Windows-Setup-v${env:NIMBUS_VERSION}.exe"
+          $stable = "installer\Output\Nimbus-Windows-Setup.exe"
+          Copy-Item $versioned $stable -Force
+          gh release upload $tag $versioned $stable --clobber
+          if ($LASTEXITCODE -ne 0) {
+            Write-Host "::error::asset upload failed for $tag"
+            exit 1
+          }
+
+          # Only after the upload is confirmed, and only after the stable name is confirmed to exist --
+          # that name is the one the website and the app link to, so its absence is the difference
+          # between a working download and a 404, and it is worth checking rather than assuming.
+          $names = gh release view $tag --json assets --jq '.assets[].name'
+          if ($LASTEXITCODE -ne 0 -or $names -notcontains "Nimbus-Windows-Setup.exe") {
+            Write-Host "::error::the stable asset Nimbus-Windows-Setup.exe is not on $tag; releases/latest/download would 404"
+            exit 1
+          }
+
+          Write-Host "published $($names -join ', ') to $env:GITHUB_SERVER_URL/$env:GITHUB_REPOSITORY/releases/tag/$tag"
