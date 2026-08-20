@@ -1,0 +1,41 @@
+{
+  "name": "nimbus-web",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Nimbus site, accounts, payments and licence API. Deploys to Vercel.",
+  "scripts": {
+    "dev": "next dev",
+    "build": "prisma generate && next build",
+    "start": "next start",
+    "lint": "next lint",
+    "typecheck": "tsc --noEmit",
+    "test": "node --experimental-strip-types --disable-warning=ExperimentalWarning --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --test src/lib/licence.test.ts src/lib/email-provider.test.ts",
+    "postinstall": "prisma generate",
+    "db:push": "prisma db push",
+    "db:studio": "prisma studio",
+    "keygen": "node scripts/keygen.mjs"
+  },
+  "dependencies": {
+    "@prisma/client": "6.4.1",
+    "animejs": "4.0.2",
+    "jose": "6.0.10",
+    "next": "^15.2.6",
+    "react": "^19.0.1",
+    "react-dom": "^19.0.1",
+    "resend": "4.1.2",
+    "stripe": "17.7.0",
+    "zod": "3.24.2"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "4.0.14",
+    "@types/node": "22.13.10",
+    "@types/react": "19.0.10",
+    "@types/react-dom": "19.0.4",
+    "prisma": "6.4.1",
+    "tailwindcss": "4.0.14",
+    "typescript": "5.8.2"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
