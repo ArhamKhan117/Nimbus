@@ -1,0 +1,21 @@
+# Secrets — never commit. Every real value lives in .env.local or in Vercel's env vars.
+.env
+.env.local
+.env*.local
+
+# Node / Next
+node_modules/
+.next/
+out/
+build/
+next-env.d.ts
+*.tsbuildinfo
+
+# Prisma's generated client
+src/generated/
+prisma/*.db
+
+# Tooling
+.vercel
+.DS_Store
+npm-debug.log*
