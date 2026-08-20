@@ -1,0 +1,39 @@
+# Fly.io deployment for the licence service.
+#
+# Written out rather than left to `fly launch` because two settings here are not defaults and both
+# matter: the volume mount (without it every deploy wipes the account database) and
+# auto_stop_machines = false (a stopped machine adds cold-start latency to activation, and activation
+# is the first thing a legitimate user does).
+#
+#     fly launch --no-deploy --copy-config
+#     fly volumes create nimbus_data --size 1 --region sin
+#     fly secrets set NIMBUS_LICENCE_PRIVATE_KEY=... STRIPE_SECRET_KEY=... \
+#                     STRIPE_WEBHOOK_SECRET=... STRIPE_PRICE_ID=... ADMIN_TOKEN=...
+#     fly deploy
+app = "nimbus-licence"
+primary_region = "sin"  # Singapore: nearest Fly region to the machines this was tested on.
+
+[build]
+  dockerfile = "Dockerfile"
+
+[env]
+  SQLITE_PATH = "/data/nimbus.db"
+  SITE_URL = "https://nimbus.example"
+
+[[mounts]]
+  source = "nimbus_data"
+  destination = "/data"
+
+[http_service]
+  internal_port = 8080
+  force_https = true
+  auto_stop_machines = false
+  auto_start_machines = true
+  min_machines_running = 1
+
+[[http_service.checks]]
+  grace_period = "10s"
+  interval = "30s"
+  method = "get"
+  path = "/healthz"
+  timeout = "5s"

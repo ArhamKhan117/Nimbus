@@ -1,0 +1,17 @@
+# Nimbus licence service.
+#
+# Four packages. The service signs tokens, reads a small SQLite database and takes Stripe webhooks;
+# anything more would be weight on something that has to stay up for activation to work.
+
+# Pinned exactly, not floored. Activation depends on this being up, and a
+# transitive minor release breaking activation at 2am is not a trade worth making for newer versions.
+# These are the versions the suite in `tests/` passes against.
+fastapi==0.115.12        # the API surface
+uvicorn[standard]==0.34.3 # ASGI server
+cryptography==50.0.0     # Ed25519 signing -- the same library the desktop client verifies with
+stripe==11.4.1           # webhook signature verification and subscription state
+pydantic==2.13.4         # request validation (arrives with FastAPI; named so it is explicit)
+
+# Dev
+pytest==9.1.1
+httpx==0.28.1            # FastAPI's TestClient transport
