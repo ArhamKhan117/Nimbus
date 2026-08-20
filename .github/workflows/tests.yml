@@ -1,0 +1,57 @@
+name: Tests
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  pytest:
+    name: pytest (Windows, Python 3.13)
+    runs-on: windows-latest
+    env:
+      # Do not let a checked-out or runner-provided .env influence CI.
+      NIMBUS_DISABLE_DOTENV: "1"
+      PYTHONUTF8: "1"
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.13
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+
+      - name: Install dependencies
+        run: python -m pip install --upgrade pip; python -m pip install -r requirements.txt
+
+      - name: Run pytest
+        # `pytest.ini` limits collection to tests/. The licence service has its own suite and its own
+        # `app` package, which would collide with this repo's app.py on one import path.
+        run: python -m pytest -q
+
+  service:
+    name: licence service (Linux, Python 3.13)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.13
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+
+      - name: Install service dependencies
+        working-directory: service
+        run: python -m pip install --upgrade pip; python -m pip install -r requirements.txt
+
+      - name: Run the service suite
+        # Ubuntu, unlike the desktop suite: this is what it is deployed on, and the service has no
+        # Windows dependency. A path or line-ending assumption that only works on Windows fails here.
+        working-directory: service
+        run: python -m pytest -q
