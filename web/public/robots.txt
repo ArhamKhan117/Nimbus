@@ -1,0 +1,7 @@
+User-agent: *
+Allow: /
+# The admin queue and the account pages have nothing useful for a crawler and one of them is
+# token-gated. Keeping them out of an index is tidiness, not security -- the token is the security.
+Disallow: /admin
+Disallow: /account
+Disallow: /api/
