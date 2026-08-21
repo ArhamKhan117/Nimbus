@@ -1,0 +1,148 @@
+// Nimbus accounts, licences and payments.
+//
+// Seven models and no more: User, Token, Licence, Device, Trial, ManualPayment, Event. The whole data
+// model is "who has an account, who is activated, what key did they get, which machines is it on, has
+// this device had its trial, what arrived out of band, and what happened" -- and every table beyond
+// those seven is a table someone has to keep correct.
+//
+// Postgres rather than SQLite because this runs on Vercel, where the filesystem is ephemeral: a
+// SQLite file would be wiped on every deploy, taking the account list with it.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_DATABASE_URL")
+}
+
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  // Scrypt, salted per user, from Node's own crypto. No password library: scrypt is in the standard
+  // library, memory-hard, and one less dependency to keep patched.
+  passwordHash  String
+  emailVerified Boolean   @default(false)
+  name          String?
+  createdAt     DateTime  @default(now())
+  // Brute-force defence without Redis. Vercel functions do not share memory, so an in-process
+  // counter would reset on every cold start and protect nothing.
+  failedLogins  Int       @default(0)
+  lockedUntil   DateTime?
+  stripeCustomerId String? @unique
+
+  licences Licence[]
+  tokens   Token[]
+  payments ManualPayment[]
+
+  @@index([createdAt])
+}
+
+/// Email verification codes, sign-in links and password resets. Single-use, short-lived, hashed at rest.
+///
+/// One model for all three because they are the same mechanism with different consequences: proof that
+/// whoever presented it controls the mailbox. Three half-implementations would be three places to get
+/// single-use, expiry and hashing wrong.
+///
+/// `attempts` exists for the 6-digit codes only. A code has 1,000,000 possibilities, which is plenty
+/// against a human and nothing at all against a script, so the code is useless without a try limit.
+model Token {
+  id        String   @id @default(cuid())
+  userId    String
+  // The SHA-256 of the value that was emailed, never the value itself: a leaked database must not
+  // hand out working sign-in links or verification codes.
+  tokenHash String   @unique
+  purpose   String
+  expiresAt DateTime
+  usedAt    DateTime?
+  attempts  Int      @default(0)
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, purpose])
+}
+
+model Licence {
+  id            String   @id @default(cuid())
+  key           String   @unique
+  userId        String
+  plan          String   @default("Nimbus")
+  seatsTotal    Int      @default(2)
+  status        String   @default("active")
+  periodEnd     DateTime
+  source        String   @default("stripe")
+  stripeSubscriptionId String? @unique
+  createdAt     DateTime @default(now())
+
+  user    User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  devices Device[]
+
+  @@index([userId, status])
+}
+
+model Device {
+  id         String   @id @default(cuid())
+  licenceId  String
+  /// The salted SHA-256 the desktop app computes. Never a raw hardware identifier.
+  deviceId   String
+  deviceName String   @default("")
+  active     Boolean  @default(true)
+  firstSeen  DateTime @default(now())
+  lastSeen   DateTime @updatedAt
+
+  licence Licence @relation(fields: [licenceId], references: [id], onDelete: Cascade)
+
+  @@unique([licenceId, deviceId])
+  @@index([deviceId])
+}
+
+/// One row per machine that has ever started a trial. Kept forever, and keyed on the device alone.
+///
+/// No email column and no user relation, deliberately: a new address cannot buy a second trial
+/// because the address was never what a trial was counted against. Deleting expired rows would
+/// hand back the trial, so they stay.
+model Trial {
+  deviceId   String   @id
+  deviceName String   @default("")
+  startedAt  DateTime @default(now())
+  expiresAt  DateTime
+  /// Which verified account started it. Nullable only so the column can be added to an existing
+  /// database without a migration that could fail; new trials always have one.
+  ///
+  /// The device is still the primary key, and that is the point: the account records *who* asked, the
+  /// device decides *whether they may*. A second address on the same machine gets nothing.
+  userId     String?
+
+  @@index([userId])
+}
+
+/// EasyPaisa and bank transfers, which arrive out of band and are approved by hand.
+model ManualPayment {
+  id        String   @id @default(cuid())
+  userId    String
+  method    String
+  /// What the customer typed from their receipt: the EasyPaisa TID or the bank reference.
+  reference String
+  amount    String   @default("")
+  note      String   @default("")
+  status    String   @default("pending")
+  createdAt DateTime @default(now())
+  reviewedAt DateTime?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([status, createdAt])
+}
+
+/// Append-only audit trail. When someone says "my licence stopped working", the answer is in here.
+model Event {
+  id     String   @id @default(cuid())
+  at     DateTime @default(now())
+  kind   String
+  detail String   @default("")
+
+  @@index([kind, at])
+}
