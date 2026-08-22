@@ -1,0 +1,480 @@
+@import "tailwindcss";
+
+/**
+ * The design system, ported value-for-value from the desktop app's `theme.py`.
+ *
+ * Not "inspired by" — the same hex codes, the same radii, the same card treatment. Someone who
+ * downloads Nimbus after reading this page should feel they opened the thing they were just looking
+ * at, and the only way to guarantee that is to share the numbers rather than eyeball them.
+ *
+ * **One accent, and it is orange.** An earlier pass used the app's listening-green in the wordmark and
+ * the background, and it was wrong for a reason worth writing down: a second colour used decoratively
+ * competes with the one that means "this is the thing to click". Green now appears nowhere. Everything
+ * that is not orange is black, and the blacks do the work instead — four of them, plus a lit top edge on
+ * every raised surface.
+ */
+@theme {
+  --color-base: #0b0b0d;
+  --color-elevated: #141417;
+  --color-raised: #191920;
+  --color-sunken: #08080a;
+
+  --color-accent: #ff7a1a;
+  --color-accent-hover: #ff8f3d;
+  --color-accent-deep: #d9600a;
+
+  --color-ink: #f5f5f7;
+  --color-ink-2: #a1a1aa;
+  --color-ink-3: #8a8a94;
+
+  --color-line: #26262b;
+  --color-line-strong: #33333a;
+
+  /* No green token at all, so nothing can reintroduce it by reaching for a semantic name. Success states
+     use the accent; the app's own green stays in the app, where a listening indicator has to be green
+     because every recording light in the world is. */
+  --color-warn: #e6a83c;
+  --color-danger: #ef5350;
+
+  --radius-card: 12px;
+  --radius-control: 8px;
+
+  --font-sans: var(--font-body), "Segoe UI", system-ui, -apple-system, sans-serif;
+  --font-display: var(--font-display), var(--font-body), system-ui, sans-serif;
+  --font-mono: var(--font-mono-web), "Cascadia Mono", Consolas, ui-monospace, monospace;
+
+  /* One vertical rhythm for every section, so headings and body never drift apart between sections.
+     The gap between a heading and its lead was inconsistent before; now there is one number for it. */
+  --space-section: 7rem;
+  --space-heading-lead: 0.875rem;
+  --space-lead-content: 2.75rem;
+}
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  /* The app's own pointer, as the page cursor.
+   *
+   * The same silhouette `overlay.py` draws, in the same orange, with the dark keyline that keeps it
+   * legible over both a white card and a black section. The hotspot is at the tip — `2 2` — because a
+   * custom cursor whose hotspot is at the image's top-left corner feels broken in a way people cannot
+   * name.
+   *
+   * A `cursor` value only applies where the pointer is meaningful: text fields keep the I-beam and
+   * disabled controls keep `not-allowed`, both restored below. Touch devices never see any of it.
+   */
+  @media (pointer: fine) {
+    html,
+    body {
+      cursor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='28' height='34' viewBox='0 0 28 34'%3E%3Cpath d='M2 2 L2 27 L8.4 21.4 L12.4 31 L17 29 L13 19.4 L21.2 18.8 Z' fill='%23FF7A1A' stroke='%231A0E04' stroke-width='1.6' stroke-linejoin='round'/%3E%3C/svg%3E")
+        2 2, auto;
+    }
+
+    /* Anything clickable gets the same pointer, brighter, so hover still changes something.
+     *
+     * No badge dot. There was a small orange circle at the arrow's top right to mark "clickable", and it
+     * read as a selection indicator rather than as emphasis — the brighter fill says it well enough. */
+    a,
+    button,
+    [role="button"],
+    summary {
+      cursor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='28' height='34' viewBox='0 0 28 34'%3E%3Cpath d='M2 2 L2 27 L8.4 21.4 L12.4 31 L17 29 L13 19.4 L21.2 18.8 Z' fill='%23FFA666' stroke='%231A0E04' stroke-width='1.6' stroke-linejoin='round'/%3E%3C/svg%3E")
+        2 2, pointer;
+    }
+
+    input,
+    textarea,
+    select,
+    [contenteditable="true"] {
+      cursor: text;
+    }
+    button:disabled,
+    [aria-disabled="true"] {
+      cursor: not-allowed;
+    }
+  }
+
+  body {
+    background: var(--color-base);
+    color: var(--color-ink);
+    font-family: var(--font-sans);
+    font-size: 17px;
+    line-height: 1.6;
+    letter-spacing: -0.006em;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+    overflow-x: clip;
+  }
+
+  h1,
+  h2,
+  h3,
+  .font-display {
+    font-family: var(--font-display);
+    font-weight: 600;
+    letter-spacing: -0.03em;
+    line-height: 1.08;
+    text-wrap: balance;
+  }
+
+  /* Keyboard focus only, matching the app's `theme.focus_visible_only`. */
+  :focus-visible {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 3px;
+    border-radius: 6px;
+  }
+  :focus:not(:focus-visible) {
+    outline: none;
+  }
+
+  ::selection {
+    background: color-mix(in oklab, var(--color-accent) 34%, transparent);
+    color: var(--color-ink);
+  }
+
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  ::-webkit-scrollbar-track {
+    background: var(--color-sunken);
+  }
+  ::-webkit-scrollbar-thumb {
+    background: var(--color-line-strong);
+    border-radius: 99px;
+    border: 2px solid var(--color-sunken);
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: var(--color-accent);
+  }
+}
+
+@layer components {
+  /* ── surfaces ──────────────────────────────────────────────────────────── */
+
+  /* `theme.surface_gradient()`: a warm accent-tinted corner falling away to a cool neutral. */
+  .surface {
+    position: relative;
+    background:
+      radial-gradient(120% 120% at 0% 0%, rgb(255 122 26 / 0.07) 0%, rgb(255 122 26 / 0) 45%),
+      linear-gradient(160deg, #17161a 0%, #141417 45%, #101013 100%);
+    border: 1px solid var(--color-line);
+    border-top-color: rgb(255 255 255 / 0.055);
+    border-radius: var(--radius-card);
+    overflow: hidden;
+    transition:
+      border-color 260ms cubic-bezier(0.2, 0.8, 0.2, 1),
+      transform 260ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  }
+
+  /* Hover lifts the card and warms its edge. Subtle on purpose: the whole page moving on mouseover is
+     noise, but a card that does nothing at all reads as an image rather than a thing. */
+  .surface-hover:hover {
+    border-color: color-mix(in oklab, var(--color-accent) 42%, var(--color-line));
+    transform: translateY(-3px);
+  }
+
+  /* The app paints grain over its surfaces, and it is *visible* there — that is the point of it. This
+     was too polite to see at 5.5% with `overlay`, which on a near-black surface has almost nothing to
+     lighten. Now `soft-light` at 16% with a finer, higher-contrast noise: the texture reads as a
+     surface, the way it does in the app, without turning into visible dots. */
+  .grain::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    opacity: 0.16;
+    mix-blend-mode: soft-light;
+    border-radius: inherit;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.92' numOctaves='4' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)'/%3E%3C/svg%3E");
+    background-size: 140px 140px;
+  }
+
+  /* Twice as strong again, for the few places that want obvious texture: the hero window and the
+     closing panel, where a large flat area would otherwise read as a rectangle of nothing. */
+  .grain-strong::after {
+    opacity: 0.26;
+  }
+
+  /* A grain layer for the page itself rather than a card, so large dark areas are never flat. Fixed, so
+     it does not scroll with the content — grain that moves reads as a pattern, grain that stays reads as
+     the surface of the screen. */
+  .grain-page::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    z-index: 1;
+    pointer-events: none;
+    opacity: 0.1;
+    mix-blend-mode: soft-light;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.86' numOctaves='4' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='180' height='180' filter='url(%23n)'/%3E%3C/svg%3E");
+    background-size: 180px 180px;
+  }
+
+  /* A hairline that fades out at both ends. Used instead of a hard <hr>, which always looks like a
+     seam in a dark interface. */
+  .rule {
+    height: 1px;
+    border: 0;
+    background: linear-gradient(90deg, transparent, var(--color-line-strong) 18%, var(--color-line-strong) 82%, transparent);
+  }
+
+  /* ── controls ──────────────────────────────────────────────────────────── */
+
+  .btn {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.55rem;
+    padding: 0.78rem 1.35rem;
+    border-radius: var(--radius-control);
+    border: 1px solid var(--color-line-strong);
+    background: linear-gradient(180deg, #1f1f26, #17171c);
+    color: var(--color-ink);
+    font-family: var(--font-display);
+    font-weight: 500;
+    font-size: 0.98rem;
+    line-height: 1.2;
+    letter-spacing: -0.01em;
+    cursor: pointer;
+    overflow: hidden;
+    transition:
+      border-color 200ms ease,
+      color 200ms ease,
+      transform 160ms cubic-bezier(0.2, 0.8, 0.2, 1),
+      box-shadow 240ms ease;
+  }
+
+  /* The orange tint on hover, as a wash rather than a colour change: the label stays legible and the
+     button warms up. */
+  .btn::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(120% 140% at 50% 120%, rgb(255 122 26 / 0.28), transparent 70%);
+    opacity: 0;
+    transition: opacity 240ms ease;
+  }
+  .btn:hover {
+    border-color: color-mix(in oklab, var(--color-accent) 65%, var(--color-line-strong));
+    transform: translateY(-1px);
+    box-shadow: 0 8px 24px -12px rgb(255 122 26 / 0.45);
+  }
+  .btn:hover::after {
+    opacity: 1;
+  }
+  .btn:active {
+    transform: translateY(0);
+  }
+  .btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
+  }
+  .btn > * {
+    position: relative;
+    z-index: 1;
+  }
+
+  .btn-primary {
+    background: linear-gradient(
+      180deg,
+      var(--color-accent-hover),
+      var(--color-accent) 55%,
+      var(--color-accent-deep)
+    );
+    border-color: var(--color-accent-deep);
+    color: #1a0e04;
+    font-weight: 600;
+  }
+  .btn-primary::after {
+    background: linear-gradient(180deg, rgb(255 255 255 / 0.35), transparent 60%);
+  }
+  .btn-primary:hover {
+    box-shadow: 0 12px 34px -14px rgb(255 122 26 / 0.85);
+  }
+
+  .btn-ghost {
+    background: transparent;
+    border-color: transparent;
+    color: var(--color-ink-2);
+  }
+  .btn-ghost:hover {
+    color: var(--color-ink);
+    border-color: var(--color-line-strong);
+    box-shadow: none;
+  }
+
+  /* Nav links: an orange underline that grows from the left, and the label warming as it does. */
+  .navlink {
+    position: relative;
+    color: var(--color-ink-2);
+    font-size: 0.95rem;
+    font-weight: 500;
+    padding: 0.35rem 0;
+    transition: color 200ms ease;
+  }
+  .navlink::after {
+    content: "";
+    position: absolute;
+    left: 0;
+    bottom: -2px;
+    height: 1.5px;
+    width: 100%;
+    background: linear-gradient(90deg, var(--color-accent), var(--color-accent-hover));
+    transform: scaleX(0);
+    transform-origin: left;
+    transition: transform 280ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  }
+  .navlink:hover {
+    color: var(--color-ink);
+  }
+  .navlink:hover::after {
+    transform: scaleX(1);
+  }
+
+  .field {
+    width: 100%;
+    padding: 0.78rem 0.95rem;
+    border-radius: var(--radius-control);
+    border: 1px solid var(--color-line-strong);
+    background: var(--color-sunken);
+    color: var(--color-ink);
+    font: inherit;
+    transition:
+      border-color 180ms ease,
+      box-shadow 180ms ease;
+  }
+  .field:hover {
+    border-color: #45454e;
+  }
+  .field:focus {
+    border-color: var(--color-accent);
+    box-shadow: 0 0 0 3px rgb(255 122 26 / 0.14);
+    outline: none;
+  }
+  .field::placeholder {
+    color: var(--color-ink-3);
+  }
+
+  /* ── type ──────────────────────────────────────────────────────────────── */
+
+  .eyebrow {
+    font-family: var(--font-mono);
+    font-size: 0.72rem;
+    font-weight: 500;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--color-ink-3);
+  }
+
+  /* The wordmark: ink falling away to accent orange across the last third. */
+  .wordmark {
+    font-family: var(--font-display);
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    background: linear-gradient(102deg, var(--color-ink) 18%, #ffb37a 58%, var(--color-accent) 92%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+
+  /* A slow highlight travelling across text. CSS only: a JavaScript loop for a gradient sweep is work
+     the compositor will do for free. */
+  .shine {
+    background: linear-gradient(
+      100deg,
+      var(--color-ink) 28%,
+      color-mix(in oklab, var(--color-accent) 78%, white) 47%,
+      var(--color-ink) 64%
+    );
+    background-size: 300% 100%;
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    animation: shine 7s linear infinite;
+  }
+  @keyframes shine {
+    to {
+      background-position: -300% 0;
+    }
+  }
+
+  .accent-text {
+    background: linear-gradient(100deg, var(--color-accent-hover), var(--color-accent) 55%, #ffb37a);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+
+  /* Elements start hidden and are revealed by anime.js. `.no-js` shows everything unconditionally so a
+     failed bundle never leaves a blank page — motion is decoration, the text is the product. */
+  .reveal {
+    opacity: 0;
+  }
+  .no-js .reveal,
+  .revealed {
+    opacity: 1;
+  }
+
+  .live-dot {
+    position: relative;
+    display: inline-block;
+    width: 6px;
+    height: 6px;
+    border-radius: 99px;
+    background: var(--color-accent);
+  }
+  .live-dot::after {
+    content: "";
+    position: absolute;
+    inset: -4px;
+    border-radius: 99px;
+    border: 1px solid var(--color-accent);
+    opacity: 0.5;
+    animation: pulse 2.6s ease-out infinite;
+  }
+  @keyframes pulse {
+    0% {
+      transform: scale(0.7);
+      opacity: 0.55;
+    }
+    70%,
+    100% {
+      transform: scale(1.5);
+      opacity: 0;
+    }
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+  .shine {
+    animation: none;
+    background: none;
+    -webkit-background-clip: border-box;
+    background-clip: border-box;
+    color: var(--color-ink);
+  }
+  .reveal {
+    opacity: 1 !important;
+    transform: none !important;
+  }
+  .live-dot::after {
+    animation: none;
+  }
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
