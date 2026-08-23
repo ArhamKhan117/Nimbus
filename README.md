@@ -23,13 +23,7 @@
 
 **A push-to-talk, screen-aware AI tutor for Windows.**
 
-<!--
-  BEFORE SUBMITTING, replace the remaining placeholder href on the line below.
-    Demo video  ->  the walkthrough recording
-  The live site and the download link both resolve already: the site is deployed, and the download
-  resolves against whatever repository this is served from.
--->
-<a href="#"><b>Demo video</b></a>
+<a href="https://youtu.be/HX75DiNGJm8"><b>Demo video</b></a>
 &nbsp;·&nbsp;
 <a href="https://trynimbus.vercel.app"><b>Live site</b></a>
 &nbsp;·&nbsp;
@@ -81,7 +75,7 @@ One thing it will never do is click for you. That is not a missing feature. It i
 | **What it is** | A Windows desktop application, plus the website and licence backend that go with it. A personal project, built by two people |
 | **Who built it** | [Emad Qureshi](https://github.com/EmadQureshiKhi) and [Arham Khan](https://github.com/ArhamKhan117). See [contributors](#contributors) |
 | **Built with Kiro** | Written in Kiro day to day, using spec-driven development. Nine specs, sixteen agent hooks, eight steering files and four MCP servers, all committed in [`.kiro/`](.kiro). Each spec ends in a dependency graph and numbered waves, so Kiro ran [up to five subagents in parallel](#parallel-execution-a-dependency-graph-then-up-to-five-agents-at-once) with every wave reviewed and re-tested by hand before it counted. See [how Kiro was used](#how-kiro-was-used), then [what building this way requires](#what-building-this-way-requires) |
-| **See it working** | <!-- DEMO VIDEO - add link before submitting --> The [demo video](#) is the fastest way in. Two minutes, one real task, no editing tricks |
+| **See it working** | The [demo video](https://youtu.be/HX75DiNGJm8) is the fastest way in. The site, the application, then real tasks run live, no editing tricks |
 | **Try it in ten seconds** | [Run it locally](#run-it-locally). Clone, install, paste a Gemini key, hold the chord |
 | **Deployed** | The [live site](https://trynimbus.vercel.app) carries accounts, the trial, licence signing and the download. `/api/health` signs a token and verifies it, so a mismatched key pair fails a health check rather than an activation |
 | **Payments** | Stripe and a manual-transfer rail are **integrated but not connected**. The code paths exist and are covered by tests. Nothing is charged and no money has moved through them |
