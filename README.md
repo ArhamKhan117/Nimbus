@@ -457,10 +457,23 @@ That is the whole install. It takes about ten seconds once pip has run.
    The trial is bound to the machine rather than to the address, so a second email earns nothing,
    which is the reason it asks for an account at all.
 
-   **Reviewers: use the licence key below instead of the trial.** Pasting a key into the activation
+   **Reviewers: use a licence key below instead of the trial.** Pasting a key into the activation
    dialog needs no email round trip, so nothing depends on mail delivery reaching your address.
 
-   <!-- TEST LICENCE KEY - add before submitting -->
+   ```
+   NIMBUS-JVB7-MFQZ-CUW6
+   NIMBUS-6EB9-JAUP-BZF5
+   NIMBUS-QMGS-HP3T-T65E
+   ```
+
+   Three of them, one each, so two reviewers are never contending for the same licence. Each carries
+   two device seats and runs to 21 December 2026. If one reports that it is already on two computers,
+   take the next.
+
+   These are ordinary keys, not a special case in the code: the same `NIMBUS-XXXX-XXXX-XXXX` alphabet
+   from the same CSPRNG, looked up by the same `/activate` endpoint, signed with the same Ed25519 key.
+   Nothing about Nimbus behaves differently because of how a licence was issued, and that is enforced
+   by there being one code path rather than by intent.
 
    (`tools/issue_local_licence.py` also exists, but it signs with the **private** key and therefore
    only runs on a machine that already holds it. It is a maintainer tool, not a reviewer path.)
