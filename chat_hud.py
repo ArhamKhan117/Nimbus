@@ -171,18 +171,37 @@ def exclude_from_capture(hwnd: int) -> bool:
 
 
 def apply_rounded_region(hwnd: int, width: int, height: int,
-                         radius: int = theme.RADIUS_CARD) -> bool:
+                         radius: int = theme.RADIUS_CARD, scale: float = 1.0) -> bool:
     """Clip a window to a round-rect via ``SetWindowRgn``.
 
     How the HUD keeps rounded corners without ``WA_TranslucentBackground``, which would set
     ``WS_EX_LAYERED`` and break capture exclusion. Verified not to disturb the display
     affinity. Must be re-applied on every resize: the region is in window coordinates at a
     fixed size, so a stale one would clip the new geometry.
+
+    ``scale`` is the window's device pixel ratio, and leaving it out was a three-symptom bug.
+
+    ``SetWindowRgn`` works in **physical device pixels**; Qt reports widget sizes in **logical**
+    ones. At 100% they are the same number and nothing looks wrong. At 125% a 660x430 panel
+    occupies 825x538 physical pixels, so a region built from the logical size covered 80% of the
+    window and cut 165px off the right and 108px off the bottom.
+
+    A window region clips **mouse input as well as painting**, which is why this looked like
+    three unrelated faults. Measured with ``GetWindowRgnBox`` against ``GetWindowRect``:
+
+    * the panel appeared cut off on first open, because it genuinely was;
+    * only the left edge and the top-left corner could be grabbed, because the right and bottom
+      edges lay outside the region and received no events at all;
+    * text looked truncated rather than wrapped, because the words were painted and then clipped.
     """
     try:
         gdi32, user32 = ctypes.windll.gdi32, ctypes.windll.user32
+        factor = max(1.0, float(scale or 1.0))
+        device_w = int(round(width * factor))
+        device_h = int(round(height * factor))
         region = gdi32.CreateRoundRectRgn(
-            0, 0, int(width) + 1, int(height) + 1, int(radius) * 2, int(radius) * 2)
+            0, 0, device_w + 1, device_h + 1,
+            int(round(radius * factor)) * 2, int(round(radius * factor)) * 2)
         if not region:
             return False
         return bool(user32.SetWindowRgn(int(hwnd), region, True))
@@ -2009,7 +2028,7 @@ class ChatHud(QWidget):
                      "Needs Windows 10 build 19041+")
             self._logged_exclusion = True
         self.capture_exclusion_active = active
-        apply_rounded_region(hwnd, self.width(), self.height())
+        self._apply_region()
 
     def needs_hide_for_capture(self) -> bool:
         """True when the pre-19041 fallback is required.
@@ -2187,7 +2206,18 @@ class ChatHud(QWidget):
         super().resizeEvent(event)
         # The region is fixed-size window geometry, so a stale one would clip the new size.
         if self.isVisible():
-            apply_rounded_region(int(self.winId()), self.width(), self.height())
+            self._apply_region()
+
+    def _apply_region(self) -> bool:
+        """Reapply the clipping region at the window's current size **and** scale.
+
+        The scale is read per call rather than cached, because a window dragged to a monitor with
+        a different scale factor gets a new ratio and no resize event of its own.
+        """
+        return apply_rounded_region(
+            int(self.winId()), self.width(), self.height(),
+            scale=self.devicePixelRatioF(),
+        )
 
     def contextMenuEvent(self, event) -> None:
         from PyQt6.QtWidgets import QMenu
