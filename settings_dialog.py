@@ -500,6 +500,34 @@ _EXPERIMENTAL_TOGGLES: tuple[tuple[str, str, str], ...] = (
 )
 
 
+_GROUNDING_REFINEMENT_CHOICES: tuple[tuple[str, str], ...] = (
+    ("Crop and ask again (default)", "crop"),
+    ("Let the model check itself", "agentic"),
+    ("Do not verify", "off"),
+)
+"""How a candidate coordinate is checked before the cursor moves.
+
+Three values, so a dropdown. The order is default first, then the two alternatives, so the list
+reads as "this, or one of these" rather than as a ranking."""
+
+_GROUNDING_REFINEMENT_TOOLTIP = (
+    "After the model says where something is, Nimbus can check the answer before\n"
+    "moving your cursor.\n\n"
+    "Crop and ask again (default): Nimbus crops a region around the first guess at\n"
+    "native resolution and asks a second time. Costs one extra request. This is the\n"
+    "path that has actually been used, and it verifies a POINT only.\n\n"
+    "Let the model check itself: hands the checking to the model instead, which needs\n"
+    "\"let the model zoom into the screen itself\" above to be on. Pick this if you\n"
+    "enable that, or the same work is paid for twice.\n\n"
+    "Do not verify: takes the first answer. Fastest, and least accurate on small\n"
+    "targets.\n\n"
+    "Worth knowing if you are chasing an inaccurate BOX rather than an inaccurate\n"
+    "point: verification refines a circle centre or an arrow head. Teaching-mode\n"
+    "boxes are not refined by any of these, so a wrong box is the model's first\n"
+    "guess and the model choice matters more than this setting does."
+)
+
+
 _GEMINI_NATIVE_MODEL_CHOICES: tuple[tuple[str, str], ...] = (
     ("Gemini 3 Flash (default, fastest)", "gemini-3-flash-preview"),
     ("Gemini 3.1 Flash Lite", "gemini-3.1-flash-lite"),
@@ -787,6 +815,8 @@ class SettingsForm(QWidget):
         self._chat_retention_days: QSpinBox | None = None
         self._shell_startup_checkbox: QCheckBox | None = None
         self._nav_side_combo: QComboBox | None = None
+        # Built in _build_experimental_group, beside the Agentic Vision toggle it interacts with.
+        self._grounding_combo: QComboBox | None = None
         self._reduce_motion_combo: QComboBox | None = None
         self._local_data_cleared = False
         self._build_ui()
@@ -1248,6 +1278,32 @@ class SettingsForm(QWidget):
             self._experimental_checkboxes[setting] = checkbox
             layout.addWidget(checkbox)
 
+        # A dropdown rather than a checkbox, because this setting has three values and always had.
+        # It sits directly under "let the model zoom into the screen itself" because the two
+        # interact: with that on and this left at `crop`, a turn pays for verification twice.
+        #
+        # It had no control at all until someone chasing an inaccurate box needed it, and the only
+        # way to change it was a keyring write from a Python prompt. A setting that exists, is
+        # restart-gated, is documented, and is reachable only by writing code is not a setting.
+        refinement_row = QHBoxLayout()
+        refinement_row.setSpacing(theme.SPACE[1])
+        refinement_row.addWidget(QLabel(
+            "Verify coordinates by:" + restart_marker_for("GROUNDING_REFINEMENT")))
+        self._grounding_combo = QComboBox()
+        for label_text, value in _GROUNDING_REFINEMENT_CHOICES:
+            self._grounding_combo.addItem(label_text, value)
+        self._grounding_combo.setToolTip(_GROUNDING_REFINEMENT_TOOLTIP)
+        stored_refinement = resolve_setting("GROUNDING_REFINEMENT", "crop").strip().lower()
+        index = next(
+            (position for position, (_, value) in enumerate(_GROUNDING_REFINEMENT_CHOICES)
+             if value == stored_refinement),
+            0,
+        )
+        self._grounding_combo.setCurrentIndex(index)
+        refinement_row.addWidget(self._grounding_combo)
+        refinement_row.addStretch(1)
+        layout.addLayout(refinement_row)
+
         return group
 
     def _build_category_row(self, category: _ProviderCategory) -> QWidget:
@@ -1660,6 +1716,7 @@ class SettingsForm(QWidget):
             if spinbox is not None:
                 store_setting( setting, str(spinbox.value()))
         for combo, setting in (
+            (self._grounding_combo, "GROUNDING_REFINEMENT"),
             (self._nav_side_combo, "NAV_SIDE"),
             (self._reduce_motion_combo, "REDUCE_MOTION"),
         ):
@@ -1870,6 +1927,7 @@ class SettingsDialog(QDialog):
         self._model_rows = form._model_rows
         self._category_widgets = form._category_widgets
         self._experimental_checkboxes = form._experimental_checkboxes
+        self._grounding_combo = form._grounding_combo
         self._realtime_note = form._realtime_note
         self._draw_checkbox = form._draw_checkbox
         self._hotkey_input = form._hotkey_input
