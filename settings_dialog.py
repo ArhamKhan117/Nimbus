@@ -31,8 +31,14 @@ Ergonomics:
 - Save button is disabled until all three fields are non-empty.
 
 Threading: this dialog runs on the Qt main thread (it's modal). No
-threading concerns. ``keyring.set_password`` is synchronous + ~10ms
+threading concerns. ``config.store_setting`` is synchronous + ~10ms
 on Windows DPAPI — no async needed.
+
+Every write goes through ``config.store_setting`` rather than ``keyring.set_password``, and that is
+not a wrapper for tidiness. A user reported that nothing in Settings survived a restart, and the
+cause was a credential vault whose writes returned success and stored nothing. ``store_setting``
+reads back what it wrote and falls back to a sealed file when the vault cannot be believed. See its
+docstring for the measurement.
 """
 from __future__ import annotations
 
@@ -63,7 +69,7 @@ from PyQt6.QtWidgets import (
 )
 
 import theme
-from config import KEYRING_SERVICE
+from config import KEYRING_SERVICE, store_setting
 
 
 HINT_QSS = f"color: {theme.TEXT_MUTED};"
@@ -1576,8 +1582,7 @@ class SettingsForm(QWidget):
             provider = category.providers[dropdown.currentIndex()]
 
             # 1. Persist provider selection (e.g. "TTS_PROVIDER" → "elevenlabs")
-            keyring.set_password(
-                KEYRING_SERVICE,
+            store_setting(
                 f"{category.category_key}_PROVIDER",
                 provider.provider_id,
             )
@@ -1585,8 +1590,7 @@ class SettingsForm(QWidget):
             # 2. Persist the API key for the selected provider.
             key_value = self._key_inputs[category.category_key].text().strip()
             if key_value:
-                keyring.set_password(
-                    KEYRING_SERVICE, provider.api_key_env_var, key_value,
+                store_setting( provider.api_key_env_var, key_value,
                 )
 
             # 3. : persist the chosen model for providers with a model
@@ -1596,24 +1600,21 @@ class SettingsForm(QWidget):
             if provider.models and provider.model_setting:
                 model_id = self._selected_model_id(category, provider)
                 if model_id:
-                    keyring.set_password(
-                        KEYRING_SERVICE, provider.model_setting, model_id,
+                    store_setting( provider.model_setting, model_id,
                     )
 
         # Experimental toggles. Written as explicit "on"/"off" strings rather than
         # deleting the key when off, so an intentional OFF is distinguishable from
         # "never configured" and cannot be silently re-defaulted later.
         for setting, checkbox in self._experimental_checkboxes.items():
-            keyring.set_password(
-                KEYRING_SERVICE, setting, "on" if checkbox.isChecked() else "off",
+            store_setting( setting, "on" if checkbox.isChecked() else "off",
             )
 
         # T2-1 Privacy Guard. Same explicit "on"/"off" rule as above, which matters more
         # here than anywhere else: this setting defaults ON, so treating "absent" as OFF
         # would silently disable a privacy feature the user believes is active.
         if self._privacy_checkbox is not None:
-            keyring.set_password(
-                KEYRING_SERVICE,
+            store_setting(
                 "PRIVACY_GUARD",
                 "on" if self._privacy_checkbox.isChecked() else "off",
             )
@@ -1622,24 +1623,21 @@ class SettingsForm(QWidget):
             (self._privacy_titles_field, "PRIVACY_GUARD_TITLES"),
         ):
             if field is not None:
-                keyring.set_password(KEYRING_SERVICE, setting, field.text().strip())
+                store_setting( setting, field.text().strip())
 
         # persist the draw-on-screen toggle.
         if self._draw_checkbox is not None:
-            keyring.set_password(
-                KEYRING_SERVICE,
+            store_setting(
                 "ANNOTATION_MODE",
                 "on" if self._draw_checkbox.isChecked() else "off",
             )
         if self._diagnostic_capture_checkbox is not None:
-            keyring.set_password(
-                KEYRING_SERVICE,
+            store_setting(
                 "DIAGNOSTIC_CAPTURE",
                 "on" if self._diagnostic_capture_checkbox.isChecked() else "off",
             )
         if self._diagnostic_retention_days is not None:
-            keyring.set_password(
-                KEYRING_SERVICE,
+            store_setting(
                 "DIAGNOSTIC_RETENTION_DAYS",
                 str(self._diagnostic_retention_days.value()),
             )
@@ -1653,23 +1651,22 @@ class SettingsForm(QWidget):
             (self._shell_startup_checkbox, "SHELL_ON_STARTUP"),
         ):
             if checkbox is not None:
-                keyring.set_password(
-                    KEYRING_SERVICE, setting, "on" if checkbox.isChecked() else "off",
+                store_setting( setting, "on" if checkbox.isChecked() else "off",
                 )
         for spinbox, setting in (
             (self._chat_autohide_seconds, "CHAT_HUD_AUTOHIDE_SECONDS"),
             (self._chat_retention_days, "CHAT_RETENTION_DAYS"),
         ):
             if spinbox is not None:
-                keyring.set_password(KEYRING_SERVICE, setting, str(spinbox.value()))
+                store_setting( setting, str(spinbox.value()))
         for combo, setting in (
             (self._nav_side_combo, "NAV_SIDE"),
             (self._reduce_motion_combo, "REDUCE_MOTION"),
         ):
             if combo is not None:
-                keyring.set_password(KEYRING_SERVICE, setting, str(combo.currentData()))
+                store_setting( setting, str(combo.currentData()))
 
-        keyring.set_password(KEYRING_SERVICE, "HOTKEY", hotkey_value)
+        store_setting( "HOTKEY", hotkey_value)
         self.sig_saved.emit()
         return True
 

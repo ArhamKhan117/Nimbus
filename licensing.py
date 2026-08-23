@@ -281,7 +281,14 @@ def _store_blob(name: str, value: str) -> bool:
             import keyring
 
             keyring.set_password(KEYRING_SERVICE, name, value)
-            return True
+            # Read back before believing it. The size check above came from a vault that *refused* a
+            # 2 KB write; this exists because a vault can also **accept** a write, report success and
+            # store nothing. Measured on a machine with 75 credentials: `set_password` returned, and
+            # `get_password` still gave the old value. Without this the file fallback below never
+            # runs, because there is no exception to catch, and the licence silently fails to persist
+            # -- which surfaces as re-activating on every launch.
+            if keyring.get_password(KEYRING_SERVICE, name) == value:
+                return True
         except Exception:
             pass
     try:

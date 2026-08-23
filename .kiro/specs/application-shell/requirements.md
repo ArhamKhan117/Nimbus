@@ -516,8 +516,9 @@ that a setting cannot behave differently depending on which module read it.
 
 #### Acceptance Criteria
 
-1. Every setting SHALL resolve in the order **environment, then credential store, then declared
-   default**, through one function, with no module reading a setting any other way.
+1. Every setting SHALL resolve in the order **environment, then the verified-write fallback, then the
+   credential store, then declared default**, through one function, with no module reading a setting
+   any other way.
 2. THE resolver SHALL **write through** to the credential store whenever the value came from the
    environment, and the purpose SHALL be recorded: it is a one-shot migration out of a dotfile, so
    that a value set once in an environment file survives without that file.
@@ -535,7 +536,32 @@ that a setting cannot behave differently depending on which module read it.
 8. A test fixture SHALL exist that reloads the settings module with the environment cleared and the
    credential store stubbed empty, and SHALL restore both on teardown, so that no test inherits a
    stubbed configuration.
-9. THE reason for that fixture SHALL be recorded: asserting a default by reading the imported module
+9. A write to the credential store SHALL be **read back**, and SHALL be treated as failed when the
+   value does not come back.
+10. THE defect SHALL be recorded, because it was reported by a user and not by a test. Every control in
+    Settings could be changed and saved, and none of it survived a restart. `keyring.set_password`
+    returned normally and stored nothing: measured on a machine holding 75 credentials, where writing
+    `ANNOTATION_MODE` left the previous value in place with no exception raised. Windows itself was
+    healthy, `cmdkey` wrote and read a generic credential, and no policy blocked storage. The resolver's
+    existing `except Exception` guard could never fire, because there was no exception.
+11. THE cause SHALL be recorded at the level that explains it: the credential backend writes the newest
+    value to the bare service target with enterprise persistence, an enterprise-persisted credential is
+    roamed, and roaming has a total size budget. Past that budget the write is dropped and reported as
+    success. Writing the same target with machine-local persistence succeeded in the same process, which
+    is what identified it.
+12. A setting that cannot be written to the credential store SHALL be written to a fallback file, and
+    that file SHALL be **encrypted to the current Windows account** rather than stored in clear, because
+    it holds API keys and the store it replaces encrypts at rest.
+13. THE fallback SHALL be consulted **before** the credential store, and the reason recorded: a name is
+    only in the fallback because the store refused to update it, so the store still holds the previous
+    value and reading it first would return the stale one.
+14. THE fallback entry SHALL be removed as soon as a credential-store write verifies, so that a machine
+    whose store recovers returns to it without anyone clearing anything by hand.
+15. THE licence store SHALL verify its writes the same way, and the reason recorded: it already had a
+    file fallback for a store that *refused* a large write, and that fallback could never trigger for a
+    store that accepted a write and discarded it. A licence that does not persist means re-activating on
+    every launch.
+16. THE reason for that fixture SHALL be recorded: asserting a default by reading the imported module
    tests the machine the suite is running on rather than the code.
 
 ### Requirement 18: A setting can be changed without restarting

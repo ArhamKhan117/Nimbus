@@ -510,7 +510,34 @@ the first chord press after opening.
 - [x] 14.6 Add the `first_run_config` fixture and restore both sources on teardown
   - Asserting a default by reading the imported module tests the machine the suite runs on rather
     than the code. It cost three failures during live verification before the fixture existed
-  - _Requirements: 17.8, 17.9_
+  - _Requirements: 17.16, 17.17_
+- [x] 14.7 Read back every credential-store write, and fall back to a sealed file — reported defect
+  - A user reported that nothing in Settings survived a restart. `keyring.set_password` returned
+    normally and stored nothing, so the existing `except Exception` guard was dead code. Measured on a
+    machine holding 75 credentials: writing `ANNOTATION_MODE` left the previous value in place, while
+    `cmdkey` wrote and read a generic credential perfectly and no policy blocked storage
+  - Cause, measured rather than guessed: the backend writes the newest value to the bare service
+    target with enterprise persistence, an enterprise-persisted credential is roamed, roaming has a
+    total size budget, and past it the write is dropped and reported as success. The identical write
+    with machine-local persistence succeeded in the same process
+  - The fallback file is DPAPI-sealed to the current account, because it holds API keys and the store
+    it replaces encrypts at rest. Reached through `ctypes` so no dependency is added to cover for one
+    that failed
+  - The fallback is read **before** the store: a name is only in it because the store refused the
+    newer value, so the store holds the stale one. The entry is dropped as soon as a store write
+    verifies, so a recovered machine returns to the store by itself
+  - The licence store verifies its writes the same way. Its file fallback already existed for a store
+    that *refused* a large write and could never fire for one that accepted a write and discarded it
+  - _Requirements: 17.9, 17.10, 17.11, 17.12, 17.13, 17.14, 17.15_
+- [x] 14.8 Stop the suite writing the developer's own settings
+  - The fallback made this possible for the first time: a stubbed vault is an unverifiable vault, so
+    every test that stubbed one began writing to the real `~/.nimbus/settings.dat`. One run left
+    twenty-five entries there including provider keys, and three unrelated shell tests failed because
+    `NAV_SIDE` had changed underneath them
+  - Redirected through `NIMBUS_SETTINGS_FALLBACK` rather than by patching the function, because
+    `first_run_config` reloads `config` and a reload restores module attributes -- so the first
+    attempt at this reverted mid-test and wrote the real file anyway
+  - _Requirements: 17.8_
 
 - [ ] 15. Live setting reload (`T4-7b`)
 - [ ] 15.1 Classify each cached setting as safe or unsafe to swap mid-session

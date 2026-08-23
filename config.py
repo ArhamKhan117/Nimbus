@@ -30,6 +30,161 @@ as the namespace key. All Nimbus API keys live under this single service
 name; the ``name`` parameter is the env-var name (ANTHROPIC_API_KEY, etc.)."""
 
 
+# ── Persisting a setting when the credential vault lies ─────────────────────
+#
+# `keyring.set_password` can return normally and store nothing. That is not a hypothetical: it was
+# measured on a machine where the vault had accumulated 75 entries, and it is the reason a user
+# reported that Settings did not survive a restart. The sequence was
+#
+#     keyring.set_password("nimbus", "ANNOTATION_MODE", "on")   -> returns, no exception
+#     keyring.get_password("nimbus", "ANNOTATION_MODE")         -> "off"
+#
+# and every toggle in Settings behaved that way. Windows itself was fine: `cmdkey` wrote and read a
+# generic credential, and no policy blocked storage. `keyring`'s Windows backend writes the newest
+# value to the bare service target with `CRED_PERSIST_ENTERPRISE`, and an enterprise-persisted
+# credential is roamed, so it is subject to a total size budget. Past that budget `CredWrite`
+# reports success and drops the write. Writing the same target with `CRED_PERSIST_LOCAL_MACHINE`
+# succeeded in the same process, which is what pinned the cause.
+#
+# The lesson generalises past this one machine: a write nobody reads back is not a write. So
+# `store_setting` verifies, and falls back to a file when the vault cannot be trusted.
+
+SETTINGS_FALLBACK_NAME = "settings.dat"
+"""Where a setting goes when the vault silently refuses it. Beside the licence blob, in DATA_DIR."""
+
+
+def _fallback_path():
+    """Where the fallback lives, overridable by ``NIMBUS_SETTINGS_FALLBACK``.
+
+    The override is read from the environment rather than patched onto this module, because the test
+    suite reloads ``config`` and a reload restores every module attribute -- so a patched function
+    silently reverts mid-test and writes land on the real file. That happened: one run left twenty-five
+    fake entries in the developer's own settings, including provider keys.
+    """
+    from pathlib import Path
+
+    override = os.getenv("NIMBUS_SETTINGS_FALLBACK")
+    if override:
+        return Path(override)
+    # ``~/.nimbus`` spelled out rather than derived from one of the directory constants below. Those
+    # are defined much later in this module and are individually redirectable by their own environment
+    # variables, so borrowing one would tie where a setting is stored to where memory or a model cache
+    # happens to point. It is the same root ``licensing`` uses for the licence blob.
+    return Path(os.path.expanduser("~")) / ".nimbus" / SETTINGS_FALLBACK_NAME
+
+
+def _dpapi(data: bytes, protect: bool) -> bytes | None:
+    """DPAPI round trip, or ``None`` when it is unavailable.
+
+    The fallback file holds API keys, and the vault it replaces encrypts at rest, so writing them in
+    clear would quietly downgrade the user's security to fix a persistence bug. DPAPI binds the
+    ciphertext to this Windows account, which is the same protection the vault offers and needs no
+    key of our own to look after.
+
+    Reached through ``ctypes`` because the only dependency that would otherwise provide it is
+    ``pywin32``, and ``keyring`` pulls ``pywin32-ctypes`` instead. Adding a dependency to encrypt a
+    fallback for a dependency that failed is not a trade worth making.
+    """
+    import ctypes
+    from ctypes import wintypes
+
+    class Blob(ctypes.Structure):
+        _fields_ = [("cbData", wintypes.DWORD),
+                    ("pbData", ctypes.POINTER(ctypes.c_char))]
+
+    try:
+        crypt32 = ctypes.windll.crypt32
+        kernel32 = ctypes.windll.kernel32
+    except Exception:
+        return None
+
+    source = Blob(len(data), ctypes.cast(ctypes.create_string_buffer(data, len(data)),
+                                         ctypes.POINTER(ctypes.c_char)))
+    result = Blob()
+    function = crypt32.CryptProtectData if protect else crypt32.CryptUnprotectData
+    # 0x01 is CRYPTPROTECT_UI_FORBIDDEN: never prompt. A dialog from inside a settings save would be
+    # inexplicable to the user and would block the Qt main thread.
+    arguments = ([ctypes.byref(source), None, None, None, None, 0x01, ctypes.byref(result)]
+                 if protect else
+                 [ctypes.byref(source), None, None, None, None, 0x01, ctypes.byref(result)])
+    try:
+        if not function(*arguments):
+            return None
+        out = ctypes.string_at(result.pbData, result.cbData)
+    except Exception:
+        return None
+    finally:
+        try:
+            if result.pbData:
+                kernel32.LocalFree(result.pbData)
+        except Exception:
+            pass
+    return out
+
+
+def _read_fallback() -> dict:
+    """Every setting the vault could not hold. ``{}`` when there is nothing or it is unreadable."""
+    import json
+
+    path = _fallback_path()
+    try:
+        raw = path.read_bytes()
+    except Exception:
+        return {}
+    if raw.startswith(b"{"):
+        # Written on a machine where DPAPI was unavailable. Still readable, deliberately.
+        text = raw.decode("utf-8", "replace")
+    else:
+        plain = _dpapi(raw, protect=False)
+        if plain is None:
+            return {}
+        text = plain.decode("utf-8", "replace")
+    try:
+        loaded = json.loads(text)
+    except Exception:
+        return {}
+    return loaded if isinstance(loaded, dict) else {}
+
+
+def _write_fallback(values: dict) -> bool:
+    import json
+
+    path = _fallback_path()
+    body = json.dumps(values, indent=2, sort_keys=True).encode("utf-8")
+    sealed = _dpapi(body, protect=True)
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(sealed if sealed is not None else body)
+        return True
+    except Exception:
+        return False
+
+
+def store_setting(name: str, value: str) -> bool:
+    """Persist a setting and **prove** it persisted. ``False`` only when nothing worked.
+
+    Vault first, because it encrypts at rest and is where every existing value already lives. Then
+    read it back, because that is the only way to catch a backend that reports success and stores
+    nothing. On a mismatch the value goes to the DPAPI-sealed fallback file and the vault entry is
+    left alone rather than deleted, so a vault that starts working again is not stale.
+    """
+    try:
+        keyring.set_password(KEYRING_SERVICE, name, value)
+        if keyring.get_password(KEYRING_SERVICE, name) == value:
+            # It took. Drop any fallback copy so the two cannot disagree later.
+            stored = _read_fallback()
+            if name in stored:
+                del stored[name]
+                _write_fallback(stored)
+            return True
+    except Exception:
+        pass
+
+    stored = _read_fallback()
+    stored[name] = value
+    return _write_fallback(stored)
+
+
 def resolve_api_key(name: str) -> str | None:
     """Resolve an API key by name, preferring env var then keyring.
 
@@ -48,12 +203,16 @@ def resolve_api_key(name: str) -> str | None:
     """
     env_value = os.getenv(name)
     if env_value:
-        try:
-            keyring.set_password(KEYRING_SERVICE, name, env_value)
-        except Exception:
-            # Keyring backend unreachable; env value is still good.
-            pass
+        # Verified, and with the same fallback as every other setting. A key that appears to save and
+        # then is gone next launch sends the user back to the provider's dashboard for a value they
+        # already typed correctly.
+        store_setting(name, env_value)
         return env_value
+    # Same order as `resolve_setting`, and for the same reason: a key is only in the file because the
+    # vault would not take the newer value, so the vault's copy is the outdated one.
+    from_file = _read_fallback().get(name)
+    if from_file:
+        return from_file
     try:
         return keyring.get_password(KEYRING_SERVICE, name)
     except Exception:
@@ -78,11 +237,18 @@ def resolve_setting(name: str, default: str) -> str:
     """
     env_value = os.getenv(name)
     if env_value:
-        try:
-            keyring.set_password(KEYRING_SERVICE, name, env_value)
-        except Exception:
-            pass
+        store_setting(name, env_value)
         return env_value
+    # The fallback file comes **before** the vault, and the order is the whole fix.
+    #
+    # A name is only ever in that file because the vault refused to update it, which means the vault
+    # still holds the previous value. Reading the vault first therefore returns the stale one and the
+    # save appears to have done nothing -- which is exactly the bug being fixed, just moved. And it
+    # cannot go stale in the other direction: `store_setting` removes the name from the file the
+    # moment a vault write verifies, so a machine whose vault starts working returns to it by itself.
+    from_file = _read_fallback().get(name)
+    if from_file:
+        return from_file
     try:
         stored = keyring.get_password(KEYRING_SERVICE, name)
     except Exception:
