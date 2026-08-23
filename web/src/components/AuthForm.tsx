@@ -21,12 +21,16 @@
  * usually miss: a thrown `fetch` (no response to read a message from) and being offline. What was typed
  * is never cleared, except a password after it has been used.
  *
- * `next=buy` and `next=pay` carry someone straight on to the rail they came for after signing up, so a
- * click on either does not dead-end on an account screen.
+ * `next=buy`, `next=pay` and `next=download` carry someone straight on to the thing they came for after
+ * signing in, so a click on any of them does not dead-end on an account screen.
  *
- * `next=download` is kept for old links only. The download no longer requires an account, so nothing
- * produces that parameter any more — but a bookmark or a shared URL still might, and honouring it costs
- * one branch and saves someone landing on an account page for no reason.
+ * `next=download` matters most, because `/download` is gated again and produces that parameter itself. The
+ * whole justification for putting a wall in front of a download button is that the button still works: the
+ * click that started this has to be the click that finishes it.
+ *
+ * The parameter is therefore carried across the **switch between the two modes** as well. Someone who
+ * clicks Download, lands on sign-in and realises they need to register would otherwise lose the target on
+ * the way to `/signup` and end up on the account page holding no installer.
  */
 import { useState } from "react";
 import Link from "next/link";
@@ -58,6 +62,9 @@ export function AuthForm({ mode }: { mode: Mode }) {
   const [sentVerification, setSentVerification] = useState(false);
 
   const signingUp = mode === "signup";
+  // Only the values this form acts on are propagated. Echoing an arbitrary `next` into a link would put
+  // whatever a URL contained into an anchor on our own page.
+  const carry = next === "buy" || next === "pay" || next === "download" ? `?next=${next}` : "";
 
   async function submit(event: React.FormEvent) {
     event.preventDefault();
@@ -171,7 +178,7 @@ export function AuthForm({ mode }: { mode: Mode }) {
           <button type="button" className="btn" onClick={emailLink} disabled={busy !== ""}>
             <span>{busy === "link" ? "Sending\u2026" : "Send a sign-in link instead"}</span>
           </button>
-          <Link href="/login" className="btn btn-ghost">
+          <Link href={`/login${carry}`} className="btn btn-ghost">
             <span>Go to sign in</span>
           </Link>
         </div>
@@ -322,7 +329,10 @@ export function AuthForm({ mode }: { mode: Mode }) {
         {signingUp ? (
           <p className="text-center text-ink-3">
             Already have an account?{" "}
-            <Link href="/login" className="text-accent transition-colors hover:text-accent-hover">
+            <Link
+              href={`/login${carry}`}
+              className="text-accent transition-colors hover:text-accent-hover"
+            >
               Sign in
             </Link>
           </p>
@@ -330,7 +340,10 @@ export function AuthForm({ mode }: { mode: Mode }) {
           <div className="flex flex-wrap items-center justify-between gap-3 text-ink-3">
             <span>
               No account?{" "}
-              <Link href="/signup" className="text-accent transition-colors hover:text-accent-hover">
+              <Link
+                href={`/signup${carry}`}
+                className="text-accent transition-colors hover:text-accent-hover"
+              >
                 Create one
               </Link>
             </span>

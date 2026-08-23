@@ -51,7 +51,7 @@ mint**, because there is no signing secret on that rail and a payment claim is n
   │  every page branches on THREE session states │    /api/checkout           Stripe session          │
   │  none · stale · ok   ← the redirect-loop fix │    /api/easypaisa/initiate|callback|manual         │
   │                                              │    /api/admin/payments     approve → ensureLicence │
-  │                                              │    /api/download           302 → public installer  │
+  │                                              │    /api/download           session → 302 installer │
   │                                              │    /api/health             SIGN then VERIFY        │
   │                                              │    /api/stripe/webhook     signature-verified      │
   └──────────────────────────────────────────────┴────────────────────────────────────────────────────┘

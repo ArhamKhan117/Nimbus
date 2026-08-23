@@ -419,16 +419,24 @@ does not become a lockout.
 3. THE endpoint SHALL report database reachability.
 4. THE endpoint SHALL NOT disclose any secret or any part of one.
 
-### Requirement 18: Delivery is a redirect to the public installer
+### Requirement 18: Delivery is a redirect to the public installer, behind sign-in
 
 **User Story:** As a tester, I want the download to work, so that finding it leads to running it.
 
 #### Acceptance Criteria
 
-1. THE download endpoint SHALL redirect to the installer published in this repository's releases.
-2. THE endpoint SHALL NOT require a session, and the reason recorded: the licence gate is in the
-   application, so gating the download adds friction without adding enforcement.
-3. THE apex address SHALL be the canonical one, with any alternative redirecting to it.
+1. THE site's download endpoint SHALL redirect to the installer published in this repository's releases.
+2. THE endpoint SHALL require a session, and SHALL send a signed-out visitor to sign-in carrying a
+   return target, so that signing in resumes the download instead of ending on an account page.
+3. THE reversal SHALL be recorded with both sides of it. The endpoint previously required no session, on
+   the grounds that a licence key needs no account and the licence gate lives in the application. That
+   remains true for someone holding a key. The gate is reinstated because the trial is how nearly
+   everyone arrives, the trial needs a verified account and an emailed six-digit code, and so an account
+   is required within two minutes of launching either way. Asking before a 152 MB download is a better
+   order than asking after it.
+4. THE gate SHALL fail open on a session that cannot be read, because an unreadable cookie must not be
+   able to turn "hand over the installer" into an error.
+5. THE apex address SHALL be the canonical one, with any alternative redirecting to it.
 
 ### Requirement 19: The build command is not the type gate
 

@@ -9,11 +9,25 @@ import { sessionState } from "@/lib/auth";
 
 export const metadata: Metadata = { title: "Create your account" };
 
-export default async function SignupPage() {
-  // Already signed in: the account page is what they actually wanted. A cookie left over from a deleted
-  // account is not "signed in" and gets cleared instead of redirected.
+/** Resolved from a fixed set, never from the parameter itself, so `?next=https://…` cannot make this an
+ *  open redirect. Mirrors the same function on the sign-in page. */
+function destination(next: string | undefined): string {
+  if (next === "download") return "/download";
+  if (next === "pay") return "/pay";
+  return "/account";
+}
+
+export default async function SignupPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ next?: string | string[] }>;
+}) {
+  // Already signed in: send them on to whatever they were heading for, or the account page if they were
+  // not heading anywhere. A cookie left over from a deleted account is not "signed in" and gets cleared
+  // instead of redirected.
   const { state } = await sessionState();
-  if (state === "ok") redirect("/account");
+  const { next } = await searchParams;
+  if (state === "ok") redirect(destination(Array.isArray(next) ? next[0] : next));
   if (state === "stale") redirect("/api/auth/stale");
 
   return (

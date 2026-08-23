@@ -389,9 +389,12 @@ format itself would have needed rethinking.
 
 - [x] 12. Delivery and deployment
 - [x] 12.1 Redirect the download endpoint to the installer in this repository's releases
-  - No session required: the licence gate is in the application, so gating the download adds friction
-    without adding enforcement
-  - _Requirements: 18.1, 18.2_
+  - Behind sign-in, with `?next=download` so signing in resumes the download rather than ending on the
+    account page. A key holder needs no account, which is why this was ungated for a while, but the
+    trial needs a verified account and an emailed code within two minutes of launching anyway
+  - Fails open when the session cookie cannot be read: an unreadable cookie must not turn "hand over the
+    installer" into an error
+  - _Requirements: 18.1, 18.2, 18.3, 18.4_
 - [x] 12.2 Pin a single deployment region
   - So database round trips are not crossing continents unpredictably
   - _Requirements: 20.1_

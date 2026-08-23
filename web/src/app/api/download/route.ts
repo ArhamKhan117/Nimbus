@@ -1,20 +1,33 @@
 /**
- * `GET /download` — hand over the installer. No account, no interstitial.
+ * `GET /download` — hand over the installer, to someone with an account.
  *
- * ## Why the account gate was removed
+ * ## Why there is a gate, having removed one
  *
- * It used to require one, and the reasoning was sound at the time: the trial needs an email and a
- * six-digit code on first launch, so a download that skips the account is a download that stops working
- * two minutes later at a screen the person did not expect. Better to ask before the 152 MB than after it.
+ * This required an account, then did not, and now does again. Both directions had a real argument and it
+ * is worth keeping them both written down.
  *
- * What that reasoning missed is that **a licence key needs no account at all.** Anyone handed a key
- * activates by pasting it, with no email anywhere in the path, so for them the signup wall protected
- * nothing and cost a redirect away from the thing they had just clicked. A download button that navigates
- * somewhere else is a download button that failed.
+ * The gate came off because **a licence key needs no account at all.** Anyone handed a key activates by
+ * pasting it, with no email anywhere in the path, so for them a signup wall protected nothing and cost a
+ * redirect away from the thing they had just clicked. A download button that navigates somewhere else is a
+ * download button that failed.
  *
- * The old cost is still real for someone who wants the trial: they meet the account screen inside the
- * application instead of before the download. That is the better order. The person who cannot use it yet
- * finds out from the app, and the person who already has a key is not stopped on the way in.
+ * The gate is back because that describes a minority. Nearly everyone arrives on the **trial**, and the
+ * trial needs a verified account and a six-digit code emailed to it before the application will open. So
+ * an account is required within two minutes of launching regardless, and asking before a 152 MB download
+ * is a better order than asking after it. The key holder is not really harmed either: they have an email
+ * address, signing in takes one screen, and their key is then on the account page next to the download.
+ *
+ * What makes it tolerable is the **return target**. Signed-out visitors go to `/login?next=download`, and
+ * `AuthForm` sends them straight back here once they are in, so the click they made is the click that
+ * eventually happens. A gate without that is where the original complaint came from.
+ *
+ * ## Why the session read fails open
+ *
+ * `readSession` rather than `sessionState`: a cookie signature is enough to decide this, and the extra
+ * database round trip `sessionState` makes to detect a deleted account would only add a way for the
+ * download to break. A *throw* is treated as "let them through" for the same reason. Someone whose cookie
+ * cannot be parsed is having a bad enough time already, and the licence gate in the application is still
+ * there to enforce what actually needs enforcing.
  *
  * ## Why a redirect and not a proxy
  *
@@ -31,7 +44,7 @@
  */
 import { NextResponse } from "next/server";
 
-import { readSession } from "@/lib/auth";
+import { readSession, siteUrl } from "@/lib/auth";
 import { logEvent } from "@/lib/db";
 
 export const runtime = "nodejs";
@@ -44,19 +57,28 @@ const FALLBACK =
   "https://github.com/ArhamKhan117/Nimbus/releases/latest/download/Nimbus-Windows-Setup.exe";
 
 export async function GET() {
-  // Read for the log, never to decide. `readSession` rather than `sessionState` on purpose: this no longer
-  // gates anything, so the extra database round trip `sessionState` makes to detect a deleted account
-  // would buy nothing and could only add a way for the download to fail.
-  //
-  // Wrapped because a signed-out visitor is the normal case now, and a cookie problem must not be able to
-  // turn "give them the installer" into a 500.
+  // Three outcomes, and only the middle one is a redirect away from the installer.
   let who = "anonymous";
+  let signedIn = false;
   try {
     const session = await readSession();
-    if (session) who = session.email;
+    if (session) {
+      who = session.email;
+      signedIn = true;
+    }
   } catch {
+    // Fails open on purpose. See the note above.
     who = "unreadable session";
+    signedIn = true;
   }
+
+  if (!signedIn) {
+    await logEvent("download.gated", who);
+    // Absolute, because `NextResponse.redirect` requires one. `siteUrl()` prefers SITE_URL and falls
+    // back to the platform's own production hostname, so this is correct on a preview deployment too.
+    return NextResponse.redirect(new URL("/login?next=download", siteUrl()), 302);
+  }
+
   await logEvent("download.redirect", who);
 
   // `NIMBUS_DOWNLOAD_URL` is the one that matters in production. The fallback names a specific repository
