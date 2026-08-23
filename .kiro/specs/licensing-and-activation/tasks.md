@@ -403,6 +403,18 @@ verification reads and the build script's key-presence report is what stops a ke
   - Fails rather than warns. A warning was already the choice for the key, a warning was missed, and the
     result was a published installer that refused every licence
   - _Requirements: 14.9, 14.10, 14.11, 14.12, 14.13_
+- [x] 11.6 Refuse a value that was requested and arrived empty, and read from the environment — shipped
+      defect in the fix for 11.5
+  - The address was passed as an argument, the workflow confirmed the variable was not blank, and the
+    tool received nothing. A shell has several ways to turn a non-empty string into no argument and none
+    of them show up in a log. The tool then omitted the line, because it only wrote a truthy one, and
+    rebuilt exactly the module the new check existed to catch
+  - Nothing is written when a requested value is blank, so a refusal cannot leave a half-written module
+    behind
+  - Both values are read from the environment now, so no shell sits between the configuration and the
+    tool, and each one's **length** is printed: a trailing newline, a stray pair of quotes and the right
+    value look identical otherwise
+  - _Requirements: 14.14, 14.15, 14.16, 14.17_
 
 - [x] 12. Update checking
 - [x] 12.1 Point the check at a repository readable with no credentials — shipped defect

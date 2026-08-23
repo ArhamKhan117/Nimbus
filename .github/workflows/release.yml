@@ -84,6 +84,14 @@ jobs:
           # because they vary per deployment.
           NIMBUS_LICENCE_PUBLIC_KEY: ${{ vars.NIMBUS_LICENCE_PUBLIC_KEY }}
           NIMBUS_SERVICE_URL: ${{ vars.NIMBUS_SERVICE_URL }}
+        # `--from-env` rather than passing the values as arguments, and that is not a style choice.
+        #
+        # The first attempt did pass them as arguments, and the release failed with the address arriving
+        # **empty** at a tool that had just been told it was present: the guard below saw a non-blank
+        # environment variable, and `argparse` received nothing. A shell has several ways to turn a
+        # non-empty string into no argument, quoting being the usual one, and none of them are visible in
+        # a log. The values are already environment variables here, so putting a shell in the middle was
+        # a step that could only lose information.
         run: |
           $missing = @()
           if ([string]::IsNullOrWhiteSpace($env:NIMBUS_LICENCE_PUBLIC_KEY)) { $missing += "NIMBUS_LICENCE_PUBLIC_KEY" }
@@ -92,7 +100,7 @@ jobs:
             Write-Host "::error::$($missing -join ' and ') not set, so this installer could not activate anybody. Add them under Settings -> Secrets and variables -> Actions -> Variables."
             exit 1
           }
-          python -m tools.set_licence_key --public-key $env:NIMBUS_LICENCE_PUBLIC_KEY --service-url $env:NIMBUS_SERVICE_URL
+          python -m tools.set_licence_key --from-env
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       # Read back what was actually written, rather than trusting that the step above did it.

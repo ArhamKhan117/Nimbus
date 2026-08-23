@@ -1,7 +1,8 @@
-"""Bake the licence service's **public** key into a release build.
+"""Bake the licence service's **public** key and address into a release build.
 
     python -m tools.set_licence_key --public-key <base64>       write it
     python -m tools.set_licence_key --service-url https://...   and point at a deployment
+    python -m tools.set_licence_key --from-env                  both, from the environment
     python -m tools.set_licence_key --check                     what will this build ship with?
     python -m tools.set_licence_key --clear                     back to an unkeyed dev build
 
@@ -27,6 +28,7 @@ from __future__ import annotations
 
 import argparse
 import base64
+import os
 import sys
 from pathlib import Path
 
@@ -153,6 +155,8 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--public-key",
                         help="base64url Ed25519 public key from `node scripts/keygen.mjs` in web/")
     parser.add_argument("--service-url", help="licence service base URL, e.g. https://nimbus.example")
+    parser.add_argument("--from-env", action="store_true",
+                        help="take both values from NIMBUS_LICENCE_PUBLIC_KEY and NIMBUS_SERVICE_URL")
     parser.add_argument("--check", action="store_true", help="report and exit")
     parser.add_argument("--clear", action="store_true", help="remove the baked key")
     args = parser.parse_args(argv)
@@ -162,8 +166,36 @@ def main(argv: list[str] | None = None) -> int:
         print(f"Removed {TARGET.name}. This build will refuse every licence.")
         return 0
 
-    if args.check or not (args.public_key or args.service_url):
+    # Read straight from the environment rather than from a command line assembled by a shell. A
+    # release failed because a value that was present in the environment arrived here **empty**: it
+    # travelled through a PowerShell argument, and a shell has more than one way to turn a non-empty
+    # string into no argument at all. The values are already environment variables at that point, so
+    # putting a shell in the middle was avoidable.
+    if args.from_env:
+        args.public_key = os.environ.get("NIMBUS_LICENCE_PUBLIC_KEY", args.public_key)
+        args.service_url = os.environ.get("NIMBUS_SERVICE_URL", args.service_url)
+        # Lengths, because the values themselves are public but a mangled one is invisible otherwise:
+        # a trailing newline, a stray pair of quotes and the correct value all look identical in a log.
+        for name in ("NIMBUS_LICENCE_PUBLIC_KEY", "NIMBUS_SERVICE_URL"):
+            raw = os.environ.get(name)
+            print(f"  {name}  {'absent' if raw is None else f'{len(raw)} chars'}")
+
+    if args.check or not (args.public_key or args.service_url or args.from_env):
         return report()
+
+    # A flag that was given and arrived blank is refused rather than ignored. This is exactly what
+    # shipped: `--service-url` was passed, the value was empty, `write` skipped the line because it
+    # only writes a truthy one, and the installer went out with no address. Asking for something and
+    # silently getting nothing is the failure mode this whole tool exists to prevent.
+    for flag, value in (("--public-key", args.public_key), ("--service-url", args.service_url)):
+        if value is not None and not value.strip():
+            print(f"ERROR: {flag} was given an empty value. "
+                  f"Nothing was written, because a build with a blank {flag[2:]} cannot activate anybody.")
+            return 2
+    if args.public_key:
+        args.public_key = args.public_key.strip()
+    if args.service_url:
+        args.service_url = args.service_url.strip()
 
     baked_key, baked_url = existing()
     key = args.public_key or baked_key

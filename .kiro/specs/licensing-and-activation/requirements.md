@@ -450,6 +450,18 @@ repository.
 13. THE address SHALL come from repository configuration rather than from the source tree, for the same
     reason the key does: it varies per deployment, and a value committed beside the code is a value that
     is wrong for everyone who deploys somewhere else.
+14. THE tool SHALL refuse a value that was **requested and arrived empty**, and SHALL write nothing in
+    that case rather than writing a module missing a line.
+15. THE second defect SHALL be recorded, because the fix for the first one shipped with it. The address
+    was passed as a command-line argument, the workflow confirmed the variable was not blank, and the
+    tool received an empty value anyway: a shell has more than one way to turn a non-empty string into no
+    argument, and none of them are visible in a log. The tool then omitted the line, because it only
+    wrote a truthy one, and produced the same broken module the check had been added to catch.
+16. THE values SHALL therefore be read from the environment directly, so that no shell sits between the
+    configured value and the tool that consumes it.
+17. THE tool SHALL report the **length** of each value it read. A trailing newline, a stray pair of
+    quotes and the correct value are indistinguishable in a log otherwise, and the values themselves are
+    public.
 
 ### Requirement 15: The update check reaches a repository it can actually read
 
