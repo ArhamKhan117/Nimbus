@@ -18,11 +18,24 @@
  * by hardware, not by counting logins — a distinction that matters, because a login count would be
  * defeated by signing out, and a hardware seat is not.
  *
+ * ## Signing in can also start the trial
+ *
+ * It did not, and that was a defect rather than a policy. A verified account signing in on a machine
+ * that had never had a trial was refused with "that account has no active licence yet", while the machine
+ * itself was perfectly eligible, and the only way through was to ask for another six-digit code. That is
+ * the flow the person had already completed once.
+ *
+ * It costs nothing to allow, because **the trial is counted against the device**. An account that starts
+ * a trial on a second machine has spent that machine's one and only trial, and a verified password proves
+ * ownership of an address exactly as a code does. So this is a second door into the same room.
+ *
  * ## Failure posture
  *
- * A wrong password is 401. No licence is 402 with a link, not 403 — "you do not have a subscription" is
- * a different sentence from "you cannot use this", and a tester whose card expired needs the first
- * one. Anything of ours is 503, which the client treats as "keep what you have and try later".
+ * A wrong password is 401. An unverified address is 403, phrased as "confirm your email" rather than as
+ * anything about licences, because that is the action which resolves it. A spent trial is 402 and says so
+ * as a spent trial, not as a missing licence: those are different situations and only one of them is the
+ * person's own history. Anything of ours is 503, which the client treats as "keep what you have and try
+ * later".
  */
 import { NextResponse } from "next/server";
 import { z } from "zod";
@@ -38,7 +51,7 @@ import {
 import { db, logEvent } from "@/lib/db";
 import { errorBody } from "@/lib/errors";
 import { PLAN_NAME, signClaims } from "@/lib/licence";
-import { claimDevice, subscriptionToken } from "@/lib/licences";
+import { claimDevice, startTrial, subscriptionToken } from "@/lib/licences";
 
 export const runtime = "nodejs";
 
@@ -100,29 +113,63 @@ export async function POST(request: Request) {
 
   const licence = user.licences[0];
   if (!licence) {
-    // No subscription, but this machine may still be inside its trial — someone who reinstalled, or
-    // cleared their credentials, during those seven days. Handing back the trial token is the correct
-    // answer and stops a trial user being told to buy something they are already using.
-    const trial = await db.trial.findFirst({
-      where: { deviceId: parsed.data.device_id, expiresAt: { gt: new Date() } },
-    });
-    if (trial) {
-      return NextResponse.json({
-        token: signClaims({
-          kind: "trial",
-          plan: `${PLAN_NAME} trial`,
-          email: user.email,
-          expires_at: trial.expiresAt.toISOString(),
-          issued_at: new Date().toISOString(),
-        }),
-        kind: "trial",
-      });
+    // No subscription. Two cases, and this used to handle only the first.
+    //
+    // **A trial already running on this machine.** Someone who reinstalled, or cleared their
+    // credentials, inside the seven days. Handing the trial token back stops a trial user being told to
+    // buy something they are already using.
+    //
+    // **A machine that has never had a trial.** This returned 402 "no active licence yet", which was
+    // wrong and was reported as such: the account was verified, the machine was eligible, and the only
+    // way through was to ask for another six-digit code -- the flow that person had already completed
+    // once and had no reason to expect again.
+    //
+    // Starting it here does not weaken anything, because the trial is counted against the **device**.
+    // An account that seeds a trial on a second machine has spent that machine's one and only trial, and
+    // a verified password proves ownership of the address exactly as a code does. It is a second door to
+    // the same room, not a second trial.
+    if (!user.emailVerified) {
+      // Refused with the action that resolves it. "No active licence" would be true and useless: what
+      // this person has to do is confirm their address, and nothing about licences tells them that.
+      return NextResponse.json(
+        errorBody(
+          "NOT_VERIFIED",
+          "Confirm your email address first. Use the trial button above to have a new 6-digit code sent, then enter it.",
+        ),
+        { status: 403 },
+      );
     }
 
-    return NextResponse.json(
-      errorBody("NO_SUBSCRIPTION", `That account has no active licence yet. See ${siteUrl()}/#pricing and Nimbus activates straight away.`),
-      { status: 402 },
+    const { expiresAt, isNew } = await startTrial(
+      parsed.data.device_id,
+      parsed.data.device_name.slice(0, 120),
+      user.id,
     );
+
+    if (!isNew && expiresAt <= new Date()) {
+      // The one genuine refusal left: this machine has had its trial and it is over. Named as a spent
+      // trial rather than as a missing licence, because those are different situations and only one of
+      // them is the person's own history.
+      return NextResponse.json(
+        errorBody(
+          "NO_SUBSCRIPTION",
+          `The free trial on this computer has ended. A licence key activates it again, and the plan is at ${siteUrl()}/#pricing.`,
+        ),
+        { status: 402 },
+      );
+    }
+
+    await logEvent(isNew ? "desktop.trial_from_login" : "desktop.login_trial", email);
+    return NextResponse.json({
+      token: signClaims({
+        kind: "trial",
+        plan: `${PLAN_NAME} trial`,
+        email: user.email,
+        expires_at: expiresAt.toISOString(),
+        issued_at: new Date().toISOString(),
+      }),
+      kind: "trial",
+    });
   }
 
   if (!(await claimDevice(licence, parsed.data.device_id, parsed.data.device_name.slice(0, 120)))) {

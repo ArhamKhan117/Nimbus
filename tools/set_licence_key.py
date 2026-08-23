@@ -100,16 +100,43 @@ def write(public_key_b64: str, service_url: str) -> None:
     TARGET.write_bytes(("\r\n".join(lines) + "\r\n").encode("utf-8"))
 
 
+RESERVED_DEFAULT = "https://nimbus.example"
+"""``licensing``'s last-resort fallback. Reaching it means nothing configured an address.
+
+Reserved by IANA for documentation, so it can never resolve. That is the right thing for a *default*
+to be and the wrong thing for a *release* to ship, which is why it is reported as a failure here.
+"""
+
+
 def report() -> int:
-    """What a build made right now would ship with."""
+    """What a build made right now would ship with, and whether that build is usable.
+
+    Both halves are checked, because only one of them used to be. A released installer went out with a
+    valid public key and **no** service address: the workflow passed ``--public-key`` alone, a release
+    checkout has no existing module to carry an address over from, and so the generated module simply had
+    no ``SERVICE_URL`` line. Nothing failed. The build log was green, the key validated, and the first
+    symptom was the activation dialog opening a browser at a documentation domain.
+
+    A missing address is exactly as fatal as a missing key -- every activation posts to a host that
+    cannot exist -- so it is reported the same way.
+    """
     sys.path.insert(0, str(ROOT))
     for name in ("licence_key", "licensing"):
         sys.modules.pop(name, None)
     import licensing
 
-    key = licensing.LICENCE_PUBLIC_KEY
+    ok = True
     print(f"  licence_key.py   {'present' if TARGET.is_file() else 'absent'}")
-    print(f"  service url      {licensing.SERVICE_URL}")
+
+    url = licensing.SERVICE_URL
+    if url.rstrip("/") == RESERVED_DEFAULT:
+        print(f"  service url      MISSING -- fell through to {RESERVED_DEFAULT}, which cannot resolve")
+        print("                   python -m tools.set_licence_key --service-url https://<deployment>")
+        ok = False
+    else:
+        print(f"  service url      OK  {url}")
+
+    key = licensing.LICENCE_PUBLIC_KEY
     if not key:
         print("  public key       MISSING -- every activation in this build will be refused")
         return 1
@@ -118,7 +145,7 @@ def report() -> int:
         print(f"  public key       INVALID: {problem}")
         return 1
     print(f"  public key       OK  {key[:12]}...{key[-6:]} ({len(key)} chars)")
-    return 0
+    return 0 if ok else 1
 
 
 def main(argv: list[str] | None = None) -> int:

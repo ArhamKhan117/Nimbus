@@ -274,6 +274,21 @@ verification reads and the build script's key-presence report is what stops a ke
 - [x] 6.7 Validate input before any request
   - A non-empty key, an address containing an at sign, a minimum password length, a minimum digit count
   - _Requirements: 10.15_
+- [x] 6.8 Let signing in start the trial on a machine that has never had one — reported defect
+  - Sign-in returned an existing trial and nothing else, so a verified account on a second machine was
+    told "that account has no active licence yet" while the machine was eligible. The only route through
+    was another code, which is the flow the person had already completed once
+  - The trial is still counted against the device, so an account seeding a trial on a second machine has
+    spent that machine's only trial. A verified password proves the address as well as a code does, so
+    this is a second door to the same room and not a second trial
+  - An unverified address is refused with the action that fixes it, asking for a code, rather than with a
+    sentence about licences
+  - _Requirements: 10.16, 10.17, 10.18, 10.19_
+- [x] 6.9 Put signing in and creating an account on one set of fields — reported defect
+  - Two cards, two email boxes, two password boxes, and the sign-in one headed "lost your key". A
+    returning user reported there was no way to sign in. There was, three inches lower, under a question
+    they were not asking
+  - _Requirements: 10.20_
 
 - [x] 7. Revalidation, sign-out and seat release
 - [x] 7.1 Revalidate on a fixed interval, silently
@@ -377,6 +392,17 @@ verification reads and the build script's key-presence report is what stops a ke
   - A publish step that reports success while uploading nothing is indistinguishable from a working
     release until someone tries to download
   - _Requirements: 14.5, 14.6_
+- [x] 11.5 Bake the service address as well as the public key, and fail without either — shipped defect
+  - Only the key was baked. A release checkout has no generated module for the tool to carry an address
+    over from, so the module was written with no address at all and the installed build fell through to
+    the reserved default. It surfaced as the activation dialog's account link opening a browser at a
+    documentation domain; every activation in that build would have failed too
+  - Verified after baking, by failing when the resolved address is still the reserved default. An unset
+    variable and a tool call missing the flag both produce an installer that looks fine and can activate
+    nobody, and neither is visible in a green build log
+  - Fails rather than warns. A warning was already the choice for the key, a warning was missed, and the
+    result was a published installer that refused every licence
+  - _Requirements: 14.9, 14.10, 14.11, 14.12, 14.13_
 
 - [x] 12. Update checking
 - [x] 12.1 Point the check at a repository readable with no credentials — shipped defect

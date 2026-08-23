@@ -19,6 +19,7 @@
 <img alt="Next.js" src="https://img.shields.io/badge/Next.js-15-33333A?style=flat-square&labelColor=0B0B0D">
 <img alt="Platform" src="https://img.shields.io/badge/Windows-10%20%7C%2011-33333A?style=flat-square&labelColor=0B0B0D">
 <img alt="Licence" src="https://img.shields.io/badge/licence-source%20available-33333A?style=flat-square&labelColor=0B0B0D">
+<a href="https://x.com/CordAILabs"><img alt="Follow on X" src="https://img.shields.io/badge/X-%40CordAILabs-FF7A1A?style=flat-square&labelColor=0B0B0D"></a>
 
 **A push-to-talk, screen-aware AI tutor for Windows.**
 
@@ -607,6 +608,7 @@ Two people, working as a team, across 8 to 23 August 2026.
 |---|---|
 | **Emad Qureshi** | [@EmadQureshiKhi](https://github.com/EmadQureshiKhi) |
 | **Arham Khan** | [@ArhamKhan117](https://github.com/ArhamKhan117) |
+| **Updates** | [@CordAILabs](https://x.com/CordAILabs) on X |
 
 Everything here was written during the competition period, in Kiro, with the direction and the
 decisions ours. The refusals in particular, never clicking for the user and never proxying inference,

@@ -46,6 +46,11 @@ export const ERRORS = {
   STALE_SESSION: "You were signed in to an account that no longer exists. Sign in again below.",
 
   // --- state of the account -------------------------------------------------
+  // Named for the action that resolves it, not for the state that blocks it. Someone who signs in before
+  // confirming their address needs to be told to confirm their address; "no active licence" is true and
+  // tells them nothing they can act on.
+  NOT_VERIFIED:
+    "Confirm your email address first. Ask for a new 6-digit code, then enter it to finish.",
   NO_SUBSCRIPTION:
     "That account has no active licence yet. See the plan on the website and Nimbus activates straight away.",
   TRIAL_USED:

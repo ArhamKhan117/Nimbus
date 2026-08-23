@@ -156,8 +156,8 @@ class TestTheTrialPath:
 
         fake = FakeLicensing(**kwargs)
         dialog = ActivationDialog(fake)
-        dialog.trial_email.setText("student@example.com")
-        dialog.trial_password.setText("correct horse battery")
+        dialog.email_input.setText("student@example.com")
+        dialog.password_input.setText("correct horse battery")
         dialog.trial_button.click()
         return dialog, fake
 
@@ -178,7 +178,7 @@ class TestTheTrialPath:
     def test_the_chosen_password_is_cleared_once_it_has_been_used(self, qt_app):
         """It is not needed again, and a password sitting in a visible form can be read over a shoulder."""
         dialog, _ = self._registered(qt_app)
-        assert dialog.trial_password.text() == ""
+        assert dialog.password_input.text() == ""
 
     def test_a_correct_code_starts_the_trial_and_accepts(self, qt_app):
         dialog, fake = self._registered(
@@ -202,7 +202,7 @@ class TestTheTrialPath:
         dialog.verify_button.click()
 
         assert dialog.code_input.text() == ""
-        assert dialog.trial_email.text() == "student@example.com"
+        assert dialog.email_input.text() == "student@example.com"
         assert "not right" in dialog.status.text()
 
     def test_a_used_trial_says_so_and_leaves_the_dialog_open(self, qt_app):
@@ -225,8 +225,8 @@ class TestTheTrialPath:
         fake = FakeLicensing(register=licensing.LicenceError(
             "Nimbus could not reach the licence service. Check your connection."))
         dialog = ActivationDialog(fake)
-        dialog.trial_email.setText("student@example.com")
-        dialog.trial_password.setText("correct horse battery")
+        dialog.email_input.setText("student@example.com")
+        dialog.password_input.setText("correct horse battery")
         dialog.trial_button.click()
 
         assert "could not reach" in dialog.status.text()
@@ -239,8 +239,8 @@ class TestTheTrialPath:
         from activation_dialog import ActivationDialog
 
         dialog = ActivationDialog(FakeLicensing(register=ZeroDivisionError()))
-        dialog.trial_email.setText("student@example.com")
-        dialog.trial_password.setText("correct horse battery")
+        dialog.email_input.setText("student@example.com")
+        dialog.password_input.setText("correct horse battery")
         dialog.trial_button.click()
 
         assert dialog.status.text().strip() != ""
@@ -471,15 +471,26 @@ class TestSigningIn:
 
         assert dialog.status.text() == message
 
-    def test_enter_in_the_password_field_signs_in(self, qt_app):
+    def test_enter_in_the_password_field_runs_the_primary_action(self, qt_app):
+        """One form, two buttons, so Enter has to choose one, and it chooses the primary.
+
+        Enter used to sign in, because the password box belonged to a sign-in card that no longer
+        exists. Now the same box serves both actions and the headline offers a trial, so Enter starts
+        the trial. Both mistakes recover: a returning user who presses Enter is emailed a code, which
+        `register` treats as a reinstall rather than an error, and `verify` then hands them whatever
+        they are entitled to. Signing in first would instead tell a brand new user that they have no
+        account, which is the more common arrival at this screen.
+        """
         from activation_dialog import ActivationDialog
 
-        dialog = ActivationDialog(FakeLicensing(login=state(activated=True, kind="subscription")))
+        fake = FakeLicensing()
+        dialog = ActivationDialog(fake)
         dialog.email_input.setText("buyer@example.com")
         dialog.password_input.setText("correct horse battery")
         dialog.password_input.returnPressed.emit()
 
-        assert dialog.result() == dialog.DialogCode.Accepted
+        assert ("register", "buyer@example.com", "correct horse battery") in fake.calls
+        assert "login" not in [call[0] for call in fake.calls]
 
     def test_the_password_is_masked(self, qt_app):
         from PyQt6.QtWidgets import QLineEdit
@@ -508,13 +519,52 @@ class TestSigningIn:
         finally:
             dialog.hide()
 
-    def test_the_key_route_is_offered_above_the_password_route(self, qt_app):
-        """Order is a decision: the key needs no password typed into a desktop app, so it comes first."""
-        from PyQt6.QtWidgets import QLabel
+    def test_signing_in_and_starting_a_trial_share_one_set_of_fields(self, qt_app):
+        """The reported defect, pinned.
+
+        There used to be two cards, each with its own email and password box, and the sign-in one was
+        headed "LOST YOUR KEY?". A returning user reported that the application offered no way to sign
+        in. It did, three inches lower, under a question they were not asking.
+
+        So this asserts the shape rather than the wording: exactly one email box, exactly one password
+        box, and both actions reachable from them. Wording can be improved; a second hidden copy of the
+        same form is the thing that must not come back.
+        """
+        from PyQt6.QtWidgets import QLineEdit
 
         from activation_dialog import ActivationDialog
 
         dialog = ActivationDialog(FakeLicensing())
+
+        masked = [box for box in dialog.findChildren(QLineEdit)
+                  if box.echoMode() == QLineEdit.EchoMode.Password]
+        assert len(masked) == 1, "two password boxes is how the sign-in path came to look missing"
+        assert masked == [dialog.password_input]
+
+        placeholders = [box.placeholderText() for box in dialog.findChildren(QLineEdit)]
+        assert placeholders.count("you@example.com") == 1, "one address, asked for once"
+
+        assert dialog.trial_button.parent() is dialog.login_button.parent(), \
+            "both actions belong to the same card, or one of them is hidden again"
+
+    def test_the_account_form_comes_before_the_key_card(self, qt_app):
+        """Order is a decision, and this one was reversed.
+
+        The key route used to come first, on the grounds that a key needs no password typed into a
+        desktop application. That still holds for someone holding a key, and it stopped being the right
+        default once the trial required an account: the screen's own headline offers a trial, and almost
+        everybody arriving here has neither a key nor an account. Making them read a card about keys
+        first was answering a question they did not have.
+        """
+        from PyQt6.QtWidgets import QLabel, QLineEdit
+
+        from activation_dialog import ActivationDialog
+
+        dialog = ActivationDialog(FakeLicensing())
+        order = [widget for widget in dialog.findChildren((QLabel, QLineEdit))]
+
+        assert order.index(dialog.email_input) < order.index(dialog.key_input)
         headings = [label.text() for label in dialog.findChildren(QLabel)
                     if label.objectName() == "CardHeader"]
-        assert headings.index("ALREADY HAVE A KEY?") < headings.index("LOST YOUR KEY?")
+        assert headings == ["ALREADY HAVE A KEY?"], \
+            "the account card needs no heading; it is what the headline is about"

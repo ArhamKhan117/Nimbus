@@ -321,6 +321,23 @@ registered with, so that "check your email from three weeks ago" is not the answ
     in.
 15. Input SHALL be validated before any request: a non-empty key, an address containing an at sign, a
     minimum password length, a minimum number of digits in a code.
+16. Signing in SHALL start the trial on a machine that has never had one, when the account's address is
+    already verified, and SHALL return the trial token.
+17. THE gap being closed SHALL be recorded. Signing in previously returned an existing trial and nothing
+    else, so a verified account on a second machine, or on the same machine after its credentials were
+    cleared, was refused with "that account has no active licence yet" while the machine itself was
+    perfectly eligible. The only way through was to ask for a new code, which is the flow the person had
+    already completed once and had no reason to expect again.
+18. THE anti-abuse property SHALL be unchanged by this, and the reason recorded: the trial is counted
+    against the **device**, not the account, so an account that seeds a trial on a second machine has
+    given that machine its one and only trial. A verified password proves ownership of the address
+    exactly as a code does, so this adds a second door to the same room rather than a second trial.
+19. AN unverified address SHALL be refused with the action that resolves it, namely asking for a code,
+    rather than with a statement about licences.
+20. THE gate SHALL offer signing in and creating an account as two actions on **one** set of fields, and
+    the defect SHALL be recorded: they were two separate cards, each with its own email and password box,
+    and the sign-in card was headed "lost your key". A returning user reported that there was no way to
+    sign in at all. There was, three inches lower, under a question they were not asking.
 
 ### Requirement 11: Signing out and releasing a seat are different actions
 
@@ -416,6 +433,23 @@ repository.
 8. THE installer's update link SHALL point at the releases page rather than at a website path, and the
    defect SHALL be recorded: it pointed at a `/releases` route the site does not have, so the "check for
    updates" link in the operating system's own settings was a 404 for every installed copy.
+9. THE workflow SHALL bake **both** the licence public key and the service address, and SHALL fail the
+   build when either is unavailable rather than publishing.
+10. THE defect SHALL be recorded, because it shipped. The workflow baked only the public key. A release
+    checkout holds no generated module for the tool to preserve an address from, so the generated module
+    was written **without one**, and the installed application fell through to the reserved default. The
+    visible symptom was not a refused licence: it was the account link in the activation dialog opening
+    a browser at a domain reserved for documentation. Every activation in that build would also have
+    failed, at a host that cannot exist.
+11. THE build SHALL verify the address after baking it and SHALL fail when it is the reserved default,
+    because the two ways of getting this wrong, an unset variable and a tool invoked without the flag,
+    both produce an installer that looks correct and cannot activate anybody.
+12. THE reason for failing rather than warning SHALL be recorded: a warning had already been chosen for
+    the public key, and a warning was missed, publishing an installer that refused every licence. An
+    installer that cannot activate is not a release, so not publishing is the better outcome.
+13. THE address SHALL come from repository configuration rather than from the source tree, for the same
+    reason the key does: it varies per deployment, and a value committed beside the code is a value that
+    is wrong for everyone who deploys somewhere else.
 
 ### Requirement 15: The update check reaches a repository it can actually read
 

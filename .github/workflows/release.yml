@@ -62,19 +62,47 @@ jobs:
           "NIMBUS_VERSION=$version" >> $env:GITHUB_ENV
           Set-Content version.py "APP_VERSION = `"$version`"" -Encoding utf8
 
-      - name: Bake the licence public key into the build
+      # Both halves of what makes an installer able to activate anybody: the key it verifies with, and
+      # the address it asks. Baking only the key is not a partial success, it is a broken release.
+      #
+      # That is not hypothetical. This step passed `--public-key` alone, and a release checkout holds no
+      # generated module for the tool to carry an address over from, so the module was written with no
+      # `SERVICE_URL` line and the installed application fell through to `licensing`'s reserved default.
+      # The build was green. The symptom was the activation dialog's account link opening a browser at a
+      # domain reserved for documentation, and every activation in that build would have failed too.
+      #
+      # Both values fail the build when absent rather than warning. A warning was the original choice
+      # here, and it was missed: an installer that refused every licence was published and had to be
+      # deleted. An installer that cannot activate is not a release, so producing nothing is better.
+      - name: Bake the licence public key and service address into the build
         shell: pwsh
         env:
-          # A repository *variable*, not a secret: this is the public half of the licence keypair. It
-          # verifies signatures and cannot create them, so it is safe in a shipped binary and safe in
-          # a build log. The private half exists only in the licence service's environment.
+          # Repository *variables*, not secrets. The public half verifies signatures and cannot create
+          # them, so it is safe in a shipped binary and in a build log; the private half exists only in
+          # the licence service's environment. The address is public by definition, it is where the
+          # application phones home. Both live in repository configuration rather than in the source tree
+          # because they vary per deployment.
           NIMBUS_LICENCE_PUBLIC_KEY: ${{ vars.NIMBUS_LICENCE_PUBLIC_KEY }}
+          NIMBUS_SERVICE_URL: ${{ vars.NIMBUS_SERVICE_URL }}
         run: |
-          if ([string]::IsNullOrWhiteSpace($env:NIMBUS_LICENCE_PUBLIC_KEY)) {
-            Write-Host "::warning::NIMBUS_LICENCE_PUBLIC_KEY is not set. This installer will refuse every licence key. Set it under Settings -> Secrets and variables -> Actions -> Variables."
-          } else {
-            python -m tools.set_licence_key --public-key $env:NIMBUS_LICENCE_PUBLIC_KEY
+          $missing = @()
+          if ([string]::IsNullOrWhiteSpace($env:NIMBUS_LICENCE_PUBLIC_KEY)) { $missing += "NIMBUS_LICENCE_PUBLIC_KEY" }
+          if ([string]::IsNullOrWhiteSpace($env:NIMBUS_SERVICE_URL)) { $missing += "NIMBUS_SERVICE_URL" }
+          if ($missing.Count -gt 0) {
+            Write-Host "::error::$($missing -join ' and ') not set, so this installer could not activate anybody. Add them under Settings -> Secrets and variables -> Actions -> Variables."
+            exit 1
           }
+          python -m tools.set_licence_key --public-key $env:NIMBUS_LICENCE_PUBLIC_KEY --service-url $env:NIMBUS_SERVICE_URL
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      # Read back what was actually written, rather than trusting that the step above did it.
+      #
+      # The two ways of getting this wrong are an unset variable and a tool call missing a flag, and
+      # neither is visible in a green log. `--check` re-imports `licensing` and reports what a build made
+      # now would ship with, failing when the address is still the reserved default. This is the check
+      # that would have caught the released defect on the run that caused it.
+      - name: Verify the build can activate a licence
+        run: python -m tools.set_licence_key --check
 
       - name: Build Nimbus
         run: python -m PyInstaller nimbus.spec --noconfirm

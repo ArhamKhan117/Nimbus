@@ -12,6 +12,7 @@
 import { NextResponse } from "next/server";
 
 import { db } from "@/lib/db";
+import { emailProvider } from "@/lib/email-provider";
 import { signClaims, verifyToken } from "@/lib/licence";
 import { stripeConfigured } from "@/lib/stripe";
 import { hostedCheckoutAvailable, manualTransferAvailable } from "@/lib/easypaisa";
@@ -53,7 +54,17 @@ export async function GET() {
   checks.stripe = stripeConfigured() ? "ok" : "not configured";
   checks.easypaisa_hosted = hostedCheckoutAvailable() ? "ok" : "not configured";
   checks.easypaisa_manual = manualTransferAvailable() ? "ok" : "not configured";
-  checks.email = process.env.RESEND_API_KEY ? "ok" : "not configured";
+  // Asked of `emailProvider` rather than tested here, because this line used to read RESEND_API_KEY
+  // alone. On a deployment sending through Brevo that reported "not configured" while mail was going
+  // out perfectly well, which is the worst thing a health check can do: it was the one field on this
+  // endpoint that disagreed with reality, so a real outage in it would have looked normal.
+  //
+  // Naming the provider rather than saying "ok" is deliberate too. Which one is answering decides
+  // whether a third party can receive anything at all: Resend only delivers to the account owner until
+  // a domain is verified, so "ok" via Resend on a platform subdomain still means nobody else gets the
+  // six-digit trial code.
+  const provider = emailProvider();
+  checks.email = provider === "none" ? "not configured" : `ok (${provider})`;
 
   return NextResponse.json({ ok, checks }, { status: ok ? 200 : 503 });
 }

@@ -80,9 +80,11 @@ class ActivationDialog(QDialog):
 
         outer.addLayout(self._build_header())
 
-        outer.addWidget(self._build_trial_card())
+        # Two cards, not three. The account card carries both ways in that involve an email address,
+        # because they are the same two fields and separating them hid one of them. See
+        # `_build_account_card`.
+        outer.addWidget(self._build_account_card())
         outer.addWidget(self._build_key_card())
-        outer.addWidget(self._build_login_card())
 
         self.status = QLabel("")
         self.status.setWordWrap(True)
@@ -153,7 +155,22 @@ class ActivationDialog(QDialog):
 
         return text
 
-    def _build_trial_card(self) -> QFrame:
+    def _build_account_card(self) -> QFrame:
+        """One email, one password, two ways in.
+
+        This was two cards. The trial card collected an email and a password to register; a second card
+        further down collected an email and a password to sign in, under the heading "LOST YOUR KEY?".
+        A returning user reported that there was no way to sign in at all. There was, three inches
+        lower, under a question they were not asking, behind a second copy of the same two boxes.
+
+        Both actions take the same credentials and differ only in what the server is asked to do with
+        them, so they belong on one form with two buttons. That is also the shape people already know
+        from every other sign-in screen, which is worth more here than anywhere else in the app: this is
+        the first window Nimbus ever shows.
+
+        ``Sign in`` is the secondary button rather than the primary one because the headline offers a
+        trial, and the majority arriving at this screen have no account yet. Secondary is not hidden.
+        """
         card = QFrame()
         card.setObjectName("FeatureRow")
         layout = QVBoxLayout(card)
@@ -161,23 +178,43 @@ class ActivationDialog(QDialog):
             theme.SPACE[2], theme.SPACE[2], theme.SPACE[2], theme.SPACE[2])
         layout.setSpacing(theme.SPACE[1])
 
-        # The trial now needs a verified email, so this card collects one. Two fields and a button, in
-        # the order someone reads them -- not a separate "sign up" screen, because a screen whose only
-        # purpose is to precede the thing you wanted is a screen people abandon.
-        self.trial_email = QLineEdit()
-        self.trial_email.setPlaceholderText("you@example.com")
-        layout.addWidget(self.trial_email)
+        self.email_input = QLineEdit()
+        self.email_input.setPlaceholderText("you@example.com")
+        layout.addWidget(self.email_input)
 
-        self.trial_password = QLineEdit()
-        self.trial_password.setPlaceholderText("Choose a password (10+ characters)")
-        self.trial_password.setEchoMode(QLineEdit.EchoMode.Password)
-        self.trial_password.returnPressed.connect(self._on_trial)
-        layout.addWidget(self.trial_password)
+        self.password_input = QLineEdit()
+        # Says what it needs for both actions. "Choose a password" told a returning user they were in
+        # the wrong place, which is how the sign-in path came to look missing.
+        self.password_input.setPlaceholderText("Password (10+ characters for a new account)")
+        self.password_input.setEchoMode(QLineEdit.EchoMode.Password)
+        # Enter starts the trial, because that is the primary action and the one a new user is here for.
+        self.password_input.returnPressed.connect(self._on_trial)
+        layout.addWidget(self.password_input)
 
+        actions = QHBoxLayout()
+        actions.setSpacing(theme.SPACE[1])
         self.trial_button = QPushButton(f"Start the {self._licensing.TRIAL_DAYS}-day trial")
         self.trial_button.setObjectName("Primary")
         self.trial_button.clicked.connect(self._on_trial)
-        layout.addWidget(self.trial_button)
+        actions.addWidget(self.trial_button, 1)
+        self.login_button = QPushButton("Sign in")
+        self.login_button.setToolTip(
+            "Already registered? Sign in with the same email and password.\n"
+            "This also fetches your licence key, so there is no email to go hunting for."
+        )
+        self.login_button.clicked.connect(self._on_login)
+        # Hidden on a licence module that cannot sign in, so a button that would fail is never shown.
+        self.login_button.setVisible(hasattr(self._licensing, "activate_with_login"))
+        actions.addWidget(self.login_button)
+        layout.addLayout(actions)
+
+        which = QLabel(
+            "New here? Start the trial and we will email a 6-digit code to confirm the address. "
+            "Already registered? Sign in with the same details."
+        )
+        which.setWordWrap(True)
+        which.setObjectName("Secondary")
+        layout.addWidget(which)
 
         # The code row, hidden until a code has actually been sent. Showing an empty code field before
         # anything has been emailed asks a question the user cannot answer yet.
@@ -199,8 +236,8 @@ class ActivationDialog(QDialog):
         layout.addWidget(self.code_row)
 
         note = QLabel(
-            "No card needed. We email a code to confirm the address, and the trial is tied to this "
-            "computer -- so it runs once per machine."
+            "No card needed. The trial is tied to this computer rather than to your address, so it runs "
+            "once per machine -- and signing in on a new computer starts that machine's own trial."
         )
         note.setWordWrap(True)
         note.setObjectName("Muted")
@@ -264,60 +301,12 @@ class ActivationDialog(QDialog):
         layout.addWidget(buy)
         return card
 
-    def _build_login_card(self) -> QFrame:
-        """Sign in with the email and password used to register.
-
-        Second, under the key, on purpose. The key is one paste and cannot be forgotten wrongly; the
-        password is the recovery path for someone who has lost the email. Offering the password first
-        would teach every tester to type credentials into a desktop application when they did not
-        need to.
-
-        Hidden entirely when the licence module cannot do it, so an older build never shows a form that
-        would fail -- and a tester never wonders whether they typed something wrong.
-        """
-        card = QFrame()
-        card.setObjectName("Card")
-        layout = QVBoxLayout(card)
-        layout.setContentsMargins(
-            theme.SPACE[2], theme.SPACE[2], theme.SPACE[2], theme.SPACE[2])
-        layout.setSpacing(theme.SPACE[1])
-
-        heading = QLabel("LOST YOUR KEY?")
-        heading.setObjectName("CardHeader")
-        layout.addWidget(heading)
-
-        note = QLabel("Sign in with the email and password you registered with.")
-        note.setWordWrap(True)
-        note.setObjectName("Muted")
-        layout.addWidget(note)
-
-        self.email_input = QLineEdit()
-        self.email_input.setPlaceholderText("you@example.com")
-        layout.addWidget(self.email_input)
-
-        row = QHBoxLayout()
-        row.setSpacing(theme.SPACE[1])
-        self.password_input = QLineEdit()
-        self.password_input.setPlaceholderText("Password")
-        self.password_input.setEchoMode(QLineEdit.EchoMode.Password)
-        self.password_input.returnPressed.connect(self._on_login)
-        row.addWidget(self.password_input, 1)
-        self.login_button = QPushButton("Sign in")
-        self.login_button.clicked.connect(self._on_login)
-        row.addWidget(self.login_button)
-        layout.addLayout(row)
-
-        if not hasattr(self._licensing, "activate_with_login"):
-            card.setVisible(False)
-        return card
-
     # -- actions --------------------------------------------------------------
 
     def _busy(self, busy: bool, message: str = "") -> None:
         for widget in (self.trial_button, self.activate_button, self.key_input,
                        self.login_button, self.email_input, self.password_input,
-                       self.trial_email, self.trial_password, self.code_input,
-                       self.verify_button):
+                       self.code_input, self.verify_button):
             widget.setEnabled(not busy)
         if message:
             self._say(message, theme.TEXT_SECONDARY)
@@ -340,7 +329,7 @@ class ActivationDialog(QDialog):
         self._busy(True, "Creating your account\u2026")
         try:
             message = self._licensing.register(
-                self.trial_email.text(), self.trial_password.text())
+                self.email_input.text(), self.password_input.text())
         except Exception as exc:
             # Deliberately broad: any failure here must produce a readable sentence, never a traceback
             # on the first screen a new user sees.
@@ -351,7 +340,7 @@ class ActivationDialog(QDialog):
         self._busy(False)
         # The password field is cleared once it has been used. It is not needed again, and a password
         # sitting in a visible form is a password someone can walk past and read.
-        self.trial_password.clear()
+        self.password_input.clear()
         self.code_row.setVisible(True)
         self.code_input.setFocus()
         self._say(message, theme.TEXT_SECONDARY)
@@ -360,7 +349,7 @@ class ActivationDialog(QDialog):
         """Check the code. On success this is a working trial, or a licence if one already existed."""
         self._busy(True, "Checking your code\u2026")
         try:
-            state = self._licensing.verify_code(self.trial_email.text(), self.code_input.text())
+            state = self._licensing.verify_code(self.email_input.text(), self.code_input.text())
         except Exception as exc:
             self._busy(False)
             # The code is cleared, the email is kept: a wrong code is retyped, a correct email is not.

@@ -400,9 +400,25 @@ the licence is invalid is correct while refusing to run because *our check crash
 `_baked` never raises: a missing generated module is a development checkout, and the environment variable
 covers it.
 
-One release-workflow rule exists because its absence produced a silent success: **read the asset list
-back** and confirm the installer is present. A publish step that reports success while uploading nothing
-is indistinguishable from a working release until someone tries to download.
+Two release-workflow rules exist because their absence produced a silent success.
+
+**Read the asset list back** and confirm the installer is present. A publish step that reports success
+while uploading nothing is indistinguishable from a working release until someone tries to download.
+
+**Bake both the key and the address, then read them back.** The workflow baked only the public key, and a
+release checkout holds no generated module for `set_licence_key` to carry an address over from, so the
+module was written with no `SERVICE_URL` line at all and the installed application fell through to the
+reserved default. Nothing failed: the key validated, the frozen selftest passed, the release published.
+The symptom was not a refused licence, which is what anyone would have looked for. It was the activation
+dialog's *account link* opening a browser at a domain reserved for documentation, because that link is
+built from the same constant. Every activation in that build would also have failed, at a host that
+cannot exist.
+
+So `--check` runs after baking and fails when the resolved address is still the reserved default. That
+default is correct as a default, for the reason given above, and never correct in a release, and those
+two facts are what the check separates. Both values fail the build rather than warning: a warning was the
+original choice for the key, a warning was missed, and an installer that refused every licence was
+published and then deleted.
 
 There is deliberately **no credential check** beside it. The token the platform injects cannot be absent,
 so a guard for it would be dead code, and a guard that can never fire is worse than none: it reads as

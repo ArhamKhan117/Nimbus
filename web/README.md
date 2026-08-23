@@ -177,9 +177,12 @@ Then, in order:
    your registrar. Until it resolves, the desktop app cannot reach the licence service at all. A bare
    Vercel origin works too — it just has to match `SITE_URL` and the baked service URL below.
 5. **Check `/healthz`.** It signs a token and verifies it with the public half, so a mismatched
-   keypair is caught there rather than by the first tester who tries to activate. Expect
-   `database`, `signing`, `stripe`, `email` and `easypaisa_manual` all `ok`;
-   `easypaisa_hosted` stays `not configured` until there is a merchant account.
+   keypair is caught there rather than by the first tester who tries to activate. `database` and
+   `signing` must both be `ok`; those two are what `ok: true` depends on. `email` names the provider
+   it would send through, `ok (brevo)` or `ok (resend)`, so which one is answering is visible rather
+   than assumed. The rest report whether they are configured, and `not configured` is the honest
+   answer for a rail you deliberately left switched off: `stripe`, `easypaisa_hosted` and
+   `easypaisa_manual` all read that way until their variables are set.
 
 Already done, so not on the list: the Stripe product, price and webhook endpoint exist and the
 signing secret is in `.env.local`; the Resend domain is verified; the licence keypair is generated and
