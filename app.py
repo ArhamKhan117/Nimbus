@@ -3926,17 +3926,32 @@ if __name__ == "__main__":
             import traceback
             print(f"\nERROR: STT failed to start: {exc}")
             traceback.print_exc()
-            try:
-                ctypes.windll.user32.MessageBoxW(
-                    None,
+            # Two different failures, and the old dialog gave one answer to both.
+            #
+            # A provider that will not load is fixed by choosing another provider. A
+            # microphone that will not open is not, because every provider records from the
+            # same device -- so telling that user to switch to the cloud recogniser sent them
+            # to a setting that could not possibly help. Reported, and it had happened: a
+            # default input device of "Line In" with nothing plugged into it produced
+            # PortAudio -9985, and the advice on screen was to change recogniser.
+            #
+            # `MicrophoneUnavailable` already explains itself, including which devices were
+            # tried, so it is shown as-is rather than wrapped in advice that contradicts it.
+            from stt import MicrophoneUnavailable
+
+            if isinstance(exc, MicrophoneUnavailable):
+                title, body = "Nimbus cannot reach a microphone", str(exc)
+            else:
+                title = "Speech-to-text failed to load"
+                body = (
                     "Nimbus's speech-to-text provider failed to start:\n\n"
                     f"{exc}\n\n"
                     "Right-click the Nimbus tray icon and open Settings to switch "
                     "to a different provider (for example AssemblyAI cloud), then "
-                    "restart Nimbus.",
-                    "Speech-to-text failed to load",
-                    0x10,  # MB_ICONERROR
+                    "restart Nimbus."
                 )
+            try:
+                ctypes.windll.user32.MessageBoxW(None, body, title, 0x10)  # MB_ICONERROR
             except Exception:
                 pass
             # Do NOT sys.exit — let the app open so the user can recover via Settings.

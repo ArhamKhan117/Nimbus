@@ -64,6 +64,96 @@ fast network; 2s is the hard ceiling so a flaky connection never hangs the UI
 after the user has released the hotkey."""
 
 
+# --- Microphone opening ------------------------------------------------------
+
+class MicrophoneUnavailable(RuntimeError):
+    """No input device could be opened, and the message says which were tried.
+
+    A distinct type because the caller's advice differs entirely. A provider that failed to
+    load is fixed by choosing another provider; a microphone that will not open is not,
+    because every provider records from the same device. Reported as one and the same thing,
+    that produced a dialog telling a user to switch to a cloud recogniser that would have
+    failed for exactly the same reason.
+    """
+
+
+def open_input_stream(**kwargs):
+    """Open a microphone stream, falling back to any input device that actually works.
+
+    ``sounddevice`` opens the **Windows default recording device** and nothing else. That is
+    usually right and occasionally useless: on the machine this was reported from, the default
+    was ``Line In (Sound BlasterX G6)``, a physical line-level jack with nothing plugged into
+    it, so every open failed with PortAudio ``-9985`` "device unavailable" at every sample
+    rate. A working ``External Mic`` sat on the same sound card, unused, and Nimbus refused to
+    start.
+
+    Refusing to start was the wrong answer twice over. The device list was right there, and the
+    error told the user to switch speech-to-text provider -- which cannot help, because the
+    cloud recogniser records from the same device.
+
+    So the default is tried first, and if it fails every other input device is probed in turn.
+    Probing means opening a throwaway stream and starting it, because construction can succeed
+    on a device that fails the moment audio is requested; a device that survives that is then
+    used for the real stream.
+
+    Raises ``MicrophoneUnavailable`` when nothing works, naming the default, the underlying
+    error, and every device that was tried, because a list of what failed is the difference
+    between a fixable problem and a mysterious one.
+    """
+    import sounddevice as sd
+
+    try:
+        return sd.RawInputStream(**kwargs)
+    except Exception as exc:
+        default_error = exc
+
+    probe_kwargs = {key: value for key, value in kwargs.items() if key != "callback"}
+    try:
+        devices = list(enumerate(sd.query_devices()))
+    except Exception:
+        devices = []
+
+    default_index = None
+    try:
+        configured = sd.default.device
+        default_index = configured[0] if isinstance(configured, (list, tuple)) else configured
+    except Exception:
+        pass
+
+    tried: list[str] = []
+    for index, device in devices:
+        if device.get("max_input_channels", 0) <= 0 or index == default_index:
+            continue
+        try:
+            probe = sd.RawInputStream(device=index, **probe_kwargs)
+            probe.start()
+            probe.stop()
+            probe.close()
+        except Exception as exc:
+            tried.append(f"  {index}: {device.get('name', '?')} -- "
+                         f"{type(exc).__name__}: {exc}")
+            continue
+        # It opened and it ran. Use it for the real stream.
+        return sd.RawInputStream(device=index, **kwargs)
+
+    default_name = "unknown"
+    for index, device in devices:
+        if index == default_index:
+            default_name = device.get("name", "unknown")
+            break
+
+    raise MicrophoneUnavailable(
+        f"No microphone could be opened.\n\n"
+        f"Windows' default recording device is {default_name!r}, and it failed with:\n"
+        f"  {default_error}\n\n"
+        f"Every other input device was tried too:\n"
+        + ("\n".join(tried) if tried else "  none found") + "\n\n"
+        "This is a Windows audio setting rather than a Nimbus one. Open Sound settings, "
+        "pick a working microphone as the Input device, and start Nimbus again. Switching "
+        "speech-to-text provider will not help: they all record from this same device."
+    )
+
+
 # --- STT abstract base -------------------------------------------------------
 
 class STT(ABC):
@@ -207,16 +297,13 @@ class AssemblyAIStreamingSTT(STT):
         return StreamingClient(StreamingClientOptions(api_key=api_key))
 
     def _default_audio_stream_factory(self, callback):
-        """Default ``sounddevice.RawInputStream`` constructor.
+        """Default input stream, through ``open_input_stream``.
 
-        Imported lazily inside the method so the module can be imported on
-        systems without portaudio (CI, headless test runners) without
-        importing sounddevice. Tests never exercise this code path because
-        they inject ``audio_stream_factory``.
+        Imported lazily inside the helper so the module can be imported on systems without
+        portaudio (CI, headless test runners). Tests never exercise this path because they
+        inject ``audio_stream_factory``.
         """
-        import sounddevice as sd
-
-        return sd.RawInputStream(
+        return open_input_stream(
             samplerate=self._sample_rate,
             blocksize=self._chunk_frames,
             dtype="int16",
@@ -630,8 +717,7 @@ class FasterWhisperSTT(STT):
         )
 
     def _default_audio_stream_factory(self, callback):
-        import sounddevice as sd  # lazy import
-        return sd.RawInputStream(
+        return open_input_stream(
             samplerate=self._sample_rate,
             blocksize=self._chunk_frames,
             dtype="int16",
