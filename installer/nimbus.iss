@@ -25,7 +25,7 @@
 ; *user* clicks from Windows' own settings, and the website is where they came from. It has twice been
 ; pointed at a repository that could not serve them: once at a name that had been renamed, once at one
 ; that was private. Both 404'd for every user.
-#define AppURL "https://nimbus.example"
+#define AppURL "https://trynimbus.vercel.app"
 
 ; Updates are a SEPARATE URL from the website, and that is not tidiness.
 ;

@@ -23,14 +23,14 @@
 **A push-to-talk, screen-aware AI tutor for Windows.**
 
 <!--
-  BEFORE SUBMITTING, replace the two placeholder hrefs on the line below.
+  BEFORE SUBMITTING, replace the remaining placeholder href on the line below.
     Demo video  ->  the walkthrough recording
-    Live site   ->  the Vercel production URL, the same one that goes in the Deployed row
-  The download link needs nothing: it resolves against whatever repository this is served from.
+  The live site and the download link both resolve already: the site is deployed, and the download
+  resolves against whatever repository this is served from.
 -->
 <a href="#"><b>Demo video</b></a>
 &nbsp;·&nbsp;
-<a href="#"><b>Live site</b></a>
+<a href="https://trynimbus.vercel.app"><b>Live site</b></a>
 &nbsp;·&nbsp;
 <a href="../../releases/latest"><b>Download for Windows</b></a>
 
@@ -82,7 +82,7 @@ One thing it will never do is click for you. That is not a missing feature. It i
 | **Built with Kiro** | Written in Kiro day to day, using spec-driven development. Nine specs, sixteen agent hooks, eight steering files and four MCP servers, all committed in [`.kiro/`](.kiro). Each spec ends in a dependency graph and numbered waves, so Kiro ran [up to five subagents in parallel](#parallel-execution-a-dependency-graph-then-up-to-five-agents-at-once) with every wave reviewed and re-tested by hand before it counted. See [how Kiro was used](#how-kiro-was-used), then [what building this way requires](#what-building-this-way-requires) |
 | **See it working** | <!-- DEMO VIDEO - add link before submitting --> The [demo video](#) is the fastest way in. Two minutes, one real task, no editing tricks |
 | **Try it in ten seconds** | [Run it locally](#run-it-locally). Clone, install, paste a Gemini key, hold the chord |
-| **Deployed** | <!-- LIVE SITE URL - add after deploy --> The [live site](#) carries accounts, the trial, licence signing and the download. `/api/health` signs a token and verifies it, so a mismatched key pair fails a health check rather than an activation |
+| **Deployed** | The [live site](https://trynimbus.vercel.app) carries accounts, the trial, licence signing and the download. `/api/health` signs a token and verifies it, so a mismatched key pair fails a health check rather than an activation |
 | **Payments** | Stripe and a manual-transfer rail are **integrated but not connected**. The code paths exist and are covered by tests. Nothing is charged and no money has moved through them |
 | **Model** | Gemini via `google-genai`, bring your own key. `config.DEFAULT_LLM_PROVIDER = "gemini-native"`. OpenAI, Anthropic and a fully local Ollama stack are selectable, and Vertex AI is a one-setting switch for anyone who needs inference inside their own cloud project |
 | **The bet** | That the software people are genuinely stuck in is a native Windows window, not a browser tab. See [why a desktop application](#why-a-desktop-application) |
