@@ -22,6 +22,7 @@ import re
 import signal
 import sys
 import threading
+import time
 from ctypes import wintypes
 from datetime import datetime
 from pathlib import Path
@@ -2299,6 +2300,7 @@ class NimbusApp(QObject):
                 return
 
             dbg.log("LLM: streaming started...")
+            stream_started_at = time.monotonic()
             _log("Asking Nimbus...")
 
             # Arm one-shot first-audible-word log. Fires on the first
@@ -2367,10 +2369,30 @@ class NimbusApp(QObject):
                 # existing signature.
                 _ask_kwargs["annotation_mode"] = annotation_mode
 
+            # Time to the first token, measured separately from time to the last one.
+            #
+            # "Sometimes it takes too long" was not diagnosable from the old log, which
+            # recorded only when the stream opened and when it finished. Those two numbers
+            # cannot tell a slow model apart from a long answer, and they hide the number
+            # that actually decides how the app feels: how long the user waits in silence
+            # before anything is spoken. Recorded per turn so a slow one can be attributed
+            # rather than guessed at.
+            first_delta_at: float | None = None
+
             with self._ai.ask_stream(**_ask_kwargs) as stream:
+                plan = getattr(self._ai, "last_geometry_plan", None)
+                if plan:
+                    dbg.log(
+                        f"LLM: query_class={plan.get('query_class')} "
+                        f"geometry_requested={plan.get('requested')} "
+                        f"forced={plan.get('forced')}"
+                    )
                 for delta in stream.text_deltas():
                     if cancel.is_set():
                         return
+                    if first_delta_at is None:
+                        first_delta_at = time.monotonic()
+                        dbg.log("LLM: first token")
                     sentence_buffer += delta
                     if not structured_geometry and "[" in sentence_buffer:
                         tag_started = True
@@ -2389,8 +2411,21 @@ class NimbusApp(QObject):
                 return
 
             dbg.log(f"LLM: done ({len(result.spoken_text)} chars)")
+            # Where the wait actually went. A turn that felt slow is either slow to start,
+            # which is the model, or slow to finish, which is a long answer streaming at a
+            # normal rate. Those are different problems and the old log conflated them.
+            if first_delta_at is not None:
+                dbg.log(
+                    f"LLM: {first_delta_at - stream_started_at:.1f}s to first token, "
+                    f"{time.monotonic() - first_delta_at:.1f}s streaming the rest"
+                )
+            else:
+                dbg.log("LLM: no text was streamed at all")
             dbg.log(f"LLM: spoken_text: {result.spoken_text!r}")
             dbg.log(f"LLM: coordinate={result.coordinate}, label={result.element_label!r}, screen={result.screen_number}")
+            geometry_note = getattr(stream, "geometry_diagnostics", "")
+            if geometry_note:
+                dbg.log(f"GEOMETRY: {geometry_note}")
             # T0-3: malformed point tags are stripped from spoken_text so they
             # can never be read aloud. Log the raw text so a model drifting
             # off-format stays diagnosable instead of failing silently.

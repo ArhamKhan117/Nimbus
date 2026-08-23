@@ -102,6 +102,33 @@ is never silent.
    propagate the failure into the speech path.
 8. THE geometry request SHALL NOT receive the knowledge base, because locating a pixel is visual and
    application documentation cannot help with it.
+9. THE geometry request SHALL **require** a function call where a refusal is certainly wrong, namely a
+   `locate` question and annotation mode, and SHALL leave it discretionary otherwise.
+10. THE reason SHALL be recorded: declaring a tool only invites a call. A live `locate` turn made the
+    geometry request and received nothing while the speech request described the location in words,
+    "it is that big orange button right in the middle of the screen". The model had located it and
+    declined to say so in the channel that could act on it.
+11. A `diagnostic` question SHALL remain discretionary even though it does request geometry, because
+    "why is my build failing" may have nothing to point at and a required call would move the cursor
+    to whatever could be found.
+12. WHERE the geometry request has not replied within a short interval, THE system SHALL issue a
+    **second identical request** and take whichever replies first, discarding the other.
+13. THE measurement behind that SHALL be recorded, because it contradicts the obvious reading. Latency
+    on a repeated identical geometry request is **bimodal**: 24 live calls landed either near 1.4
+    seconds or in a tight cluster near 22.5 seconds with nothing in between, and spacing them twelve
+    seconds apart did not change the split. So a stall is not the model reasoning, not a burst limit,
+    and says nothing about the next request.
+14. THE two rejected alternatives SHALL be recorded with why each failed. A dedicated HTTP client for
+    the geometry request did not help, and on one run the speech request itself took 66 seconds to its
+    first token, which connection contention cannot explain. A client-side request deadline is not
+    available at all: setting one failed every request outright and left the client unusable
+    afterwards.
+15. THE harvest ceiling SHALL be low enough that a pointer never arrives so late as to confuse the
+    person who asked, given that a hedged attempt rather than a single one is what it has to cover.
+16. THE interaction log SHALL record the query class, whether geometry was requested, whether the call
+    was required, how long it took, which attempt answered, and the time to first token separately from
+    the time to the last. THE reason: a turn that did not point had three possible explanations, a turn
+    that felt slow had two, and the log distinguished none of them.
 
 ### Requirement 4: Thinking budgets tiered by question class
 

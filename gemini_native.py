@@ -36,6 +36,7 @@ Testability mirrors ``stt.py`` and ``realtime.py``: the SDK client is injectable
 from __future__ import annotations
 
 import threading
+import time
 from io import BytesIO
 from typing import Callable, Iterator
 
@@ -72,6 +73,38 @@ _MIN_BUDGET_MODELS = ("pro",)
 
 _PRO_MIN_BUDGET = 128
 """Smallest budget a `pro` model accepts. Used instead of 0 for those models."""
+
+GEOMETRY_HARVEST_TIMEOUT = 12.0
+"""How long to wait for the geometry call **after** the speech stream has finished.
+
+It was 8 seconds, and that number was half of the pointer bug. Measured against the live
+model on a `locate` turn: the speech stream finished at 3.2s, the harvest waited its 8s, and
+the turn ended at 11.2s with no coordinate while the geometry call was still in flight.
+
+The other half is why the call was in flight for that long. Latency on an identical repeated
+request is **bimodal**: 24 measured calls landed either around 1.4s or in a tight cluster
+around 22.5s, with nothing in between, and spacing them twelve seconds apart changed nothing.
+So it is not the model reasoning and not a burst limit, and a client-side deadline is not
+available either -- setting `http_options.timeout` failed every request outright and left the
+client unusable afterwards.
+
+A stall in one request says nothing about the next, which is what `GEOMETRY_HEDGE_AFTER`
+exploits. This ceiling therefore only has to cover a hedged attempt rather than the worst case
+of a single one, and it stays low enough that a cursor never arrives so late that it confuses
+the person who asked.
+"""
+
+GEOMETRY_HEDGE_AFTER = 4.0
+"""When to fire a second, identical geometry request rather than keep waiting.
+
+The stalls are per-request, not global: while one call sat for twenty-two seconds, a fresh
+identical call returned in about a second and a half. Waiting is therefore the worst available
+strategy, and a duplicate request is the cheapest way to convert a stall into an answer.
+
+Whichever attempt replies first wins and the other is abandoned. The cost is one extra request
+on the minority of turns that stall, paid only when the alternative was a pointer that never
+moved. Four seconds is comfortably past the ~1.4s mode, so a healthy turn never pays it.
+"""
 
 _AGENTIC_THINKING_BUDGET = 2048
 """Thinking budget for the geometry call when Agentic Vision is enabled (T1-3).
@@ -139,6 +172,13 @@ class GeminiNativeClient(AIClient):
         contract in the system prompt."""
         self.last_search_queries: list[str] = []
         """T1-5: queries the model issued, when reported. Diagnostic only."""
+        self.last_geometry_plan: dict = {}
+        """What the last turn decided about geometry: class, whether it was asked for, and
+        whether the tool call was forced.
+
+        Diagnostic only, and it exists because a diagnostics log that recorded only
+        ``structured_geometry=True`` could not distinguish "the model declined to point"
+        from "nothing ever asked it to". Those need different fixes and looked identical."""
 
     # -- capability flags -----------------------------------------------------
 
@@ -198,6 +238,19 @@ class GeminiNativeClient(AIClient):
                 else:
                     self._client = genai.Client(api_key=self._api_key)
         return self._client
+
+    # A second SDK client for the geometry call was tried here and removed.
+    #
+    # The theory was connection-pool contention: two concurrent requests, one shared pool, and a
+    # streaming response held open until its `with` block exits. It predicted exactly the symptom,
+    # which is why it was worth testing. It was wrong. With a dedicated client and its own pool, one
+    # call per turn still stalled past twenty seconds, and on one run the *speech* call took 66
+    # seconds to its first token, which no pool held by the speech call can explain.
+    #
+    # What the numbers actually show is server-side throttling: identical requests return in about
+    # two seconds when made a few at a time and stall for twenty to sixty when a burst arrives. Two
+    # requests per turn is inherent to the split-role design, so the mitigation is the harvest
+    # timeout and the diagnostics, not another pool. Recorded because the wrong fix looked right.
 
     # -- tool declarations ----------------------------------------------------
 
@@ -360,6 +413,7 @@ class GeminiNativeClient(AIClient):
         with_tools: bool,
         force_minimal_budget: bool = False,
         cached_content: str | None = None,
+        force_tool_call: bool = False,
     ):
         """Assemble a request config.
 
@@ -369,6 +423,14 @@ class GeminiNativeClient(AIClient):
         ``force_minimal_budget`` applies to the geometry call — locating a UI element
         is pure perception, so reasoning tokens there are latency with no accuracy
         return.
+
+        ``force_tool_call`` makes the geometry call **have** to answer with a function
+        call. Declaring a tool only invites one, and a user who says "point at the pay
+        button" and gets prose has been refused the thing they asked for. Measured on a
+        real turn: the query classified as ``locate``, the geometry call was made, and
+        the model returned nothing while the speech call described the location in words
+        -- "it is that big orange button right in the middle of the screen". It knew. It
+        simply chose not to call, which is a choice this code had already made for it.
         """
         from google.genai import types
 
@@ -388,6 +450,16 @@ class GeminiNativeClient(AIClient):
 
         if with_tools:
             kwargs["tools"] = self._build_tools(annotation_mode)
+            if force_tool_call:
+                # ANY: the model must answer with one of the declared functions rather than
+                # with prose. Applied only where a refusal is certainly wrong -- see
+                # `ask_stream`, which forces it for a `locate` query and for teaching mode
+                # and leaves a diagnostic query discretionary, because "why is my build
+                # failing" has no pixel to point at and a forced guess would fly the cursor
+                # somewhere arbitrary.
+                kwargs["tool_config"] = types.ToolConfig(
+                    function_calling_config=types.FunctionCallingConfig(mode="ANY"),
+                )
             if self._enable_agentic_vision:
                 # T1-3: applied to the GEOMETRY call only. Also lift the minimal budget,
                 # because self-inspection is exactly the reasoning we normally suppress
@@ -577,9 +649,21 @@ class GeminiNativeClient(AIClient):
         # draw-on-screen teaching, so drawing is the point of the turn. Without this,
         # "circle the search bar" classifies as conceptual (it contains no directional
         # word) and silently produces no annotation at all.
+        query_class = classify_query(transcript)
         wants_geometry = is_nimbus_prompt and (
-            annotation_mode or classify_query(transcript) != "conceptual"
+            annotation_mode or query_class != "conceptual"
         )
+        # Forced where a refusal is certainly wrong, discretionary where it is not.
+        #
+        # `locate` means the user asked where something is, and teaching mode means they
+        # switched drawing on deliberately. In both cases prose instead of geometry is a
+        # failure, and it happened: a `locate` turn made the geometry call and got nothing
+        # back while the speech call described the location in words.
+        #
+        # `diagnostic` stays discretionary on purpose. "Why is my build failing" is
+        # classified as needing geometry because it *might* have something to point at, and
+        # forcing a call there would put the cursor on whatever the model could find.
+        force_geometry = annotation_mode or query_class == "locate"
 
         try:
             speech_stream = self._get_client().models.generate_content_stream(
@@ -613,9 +697,20 @@ class GeminiNativeClient(AIClient):
                     speech_prompt, max_tokens, transcript,
                     annotation_mode=annotation_mode, with_tools=True,
                     force_minimal_budget=True,
+                    force_tool_call=force_geometry,
                 ),
             )
             geometry_worker.start()
+
+        # Recorded so a turn that does not point can be explained afterwards. Without this
+        # the log said only `structured_geometry=True`, which is a capability rather than a
+        # decision, so "the pointer did nothing" and "the pointer was never asked for" were
+        # indistinguishable in a diagnostics file.
+        self.last_geometry_plan = {
+            "query_class": query_class,
+            "requested": bool(wants_geometry),
+            "forced": bool(wants_geometry and force_geometry),
+        }
 
         return _GeminiNativeStreamingResponse(
             speech_stream, target_w, target_h, geometry_worker, owner=self,
@@ -715,18 +810,31 @@ class _GeometryWorker:
         self._config = config
         self._calls: list[tuple[str, dict]] = []
         self._error: Exception | None = None
-        self._thread = threading.Thread(
-            target=self._run, daemon=True, name="nimbus-gemini-geometry",
+        self._started_at: float = 0.0
+        self._finished_at: float = 0.0
+        self._answered_by: str = ""
+        self._hedged = False
+        # Set by whichever attempt replies first, so the harvest can stop waiting on the other.
+        self._answered = threading.Event()
+        self._lock = threading.Lock()
+        self._threads = [self._spawn("first")]
+
+    def _spawn(self, name: str) -> threading.Thread:
+        return threading.Thread(
+            target=self._run, args=(name,), daemon=True,
+            name=f"nimbus-gemini-geometry-{name}",
         )
 
     def start(self) -> None:
-        self._thread.start()
+        self._started_at = time.monotonic()
+        self._threads[0].start()
 
-    def _run(self) -> None:
+    def _run(self, name: str) -> None:
         try:
             response = self._client.models.generate_content(
                 model=self._model_id, contents=self._contents, config=self._config,
             )
+            harvested: list[tuple[str, dict]] = []
             for candidate in (getattr(response, "candidates", None) or []):
                 content = getattr(candidate, "content", None)
                 if content is None:
@@ -734,19 +842,74 @@ class _GeometryWorker:
                 for part in (getattr(content, "parts", None) or []):
                     call = getattr(part, "function_call", None)
                     if call is not None and getattr(call, "name", None):
-                        self._calls.append((call.name, dict(call.args or {})))
+                        harvested.append((call.name, dict(call.args or {})))
+            with self._lock:
+                # First reply wins. The loser is not merged: two attempts at the same question
+                # would otherwise produce two points and the overlay would draw both.
+                if not self._answered.is_set():
+                    self._calls = harvested
+                    self._answered_by = name
+                    self._finished_at = time.monotonic()
+                    self._answered.set()
         except Exception as exc:  # never propagate into the speech path
-            self._error = exc
+            with self._lock:
+                if self._error is None:
+                    self._error = exc
+                if not self._answered.is_set() and self._hedged and name == "hedge":
+                    # Both attempts have now failed; stop the harvest waiting for nothing.
+                    self._finished_at = time.monotonic()
+                    self._answered.set()
 
-    def result(self, timeout: float = 8.0) -> list[tuple[str, dict]]:
+    def result(self, timeout: float = GEOMETRY_HARVEST_TIMEOUT) -> list[tuple[str, dict]]:
         """Join and return harvested calls. Empty on timeout or failure.
 
         The timeout exists so a hung geometry request cannot stall the pipeline: the
         user already heard their answer, and an absent pointer is far better than a
         blocked worker thread.
+
+        It is measured from the moment the **speech stream finished**, not from the start
+        of the turn, because that is when this is called. So the geometry call gets the
+        whole speech call for free and then this much longer.
+
+        Hedges rather than waits. If nothing has replied after ``GEOMETRY_HEDGE_AFTER``, a
+        second identical request goes out and the first reply wins. That is worth doing
+        because the stalls are per-request: a call sitting at twenty-two seconds runs
+        alongside a fresh one that answers in one and a half.
         """
-        self._thread.join(timeout=timeout)
+        deadline = time.monotonic() + timeout
+        if self._answered.wait(timeout=min(GEOMETRY_HEDGE_AFTER, timeout)):
+            return list(self._calls)
+
+        with self._lock:
+            if not self._answered.is_set() and not self._hedged:
+                self._hedged = True
+                hedge = self._spawn("hedge")
+                self._threads.append(hedge)
+                hedge.start()
+
+        self._answered.wait(timeout=max(0.0, deadline - time.monotonic()))
         return list(self._calls)
+
+    def diagnostics(self) -> str:
+        """One line for the interaction log: how long it took, and what it produced.
+
+        Exists because a turn that did not point was indistinguishable in the log from a
+        turn that never asked, and both were indistinguishable from a turn whose geometry
+        call was still in flight when the harvest gave up. That last one was what actually
+        happened, and no log line said so.
+        """
+        elapsed = (self._finished_at or time.monotonic()) - (self._started_at or 0.0)
+        hedged = ", hedged" if self._hedged else ""
+        if not self._answered.is_set():
+            return (f"no reply after {elapsed:.1f}s, abandoned "
+                    f"(ceiling {GEOMETRY_HARVEST_TIMEOUT:.0f}s{hedged})")
+        if self._error is not None and not self._calls:
+            return (f"failed after {elapsed:.1f}s{hedged}: "
+                    f"{type(self._error).__name__}: {self._error}")
+        if not self._calls:
+            return f"returned no geometry after {elapsed:.1f}s{hedged}"
+        return (f"{[name for name, _ in self._calls]} after {elapsed:.1f}s "
+                f"via the {self._answered_by} attempt{hedged}")
 
     @property
     def error(self) -> Exception | None:
@@ -782,6 +945,8 @@ class _GeminiNativeStreamingResponse:
         self._search_queries: list[str] = []
         self._deltas_exhausted = False
         self._geometry_collected = False
+        self.geometry_diagnostics = "" if geometry_worker is not None else "not requested"
+        """What the geometry call did, for the interaction log. Filled in on collection."""
 
     def __enter__(self):
         return self
@@ -989,6 +1154,10 @@ class _GeminiNativeStreamingResponse:
             return
         self._geometry_collected = True
         self._calls.extend(self._geometry_worker.result())
+        # Kept so `app.py` can log it. A turn that does not point has three possible
+        # explanations -- never asked, asked and declined, asked and not back in time -- and
+        # they need three different fixes. The log used to distinguish none of them.
+        self.geometry_diagnostics = self._geometry_worker.diagnostics()
 
     def geometry(self) -> list:
         """Structured annotation shapes in Space C, for teaching mode (T1-2).

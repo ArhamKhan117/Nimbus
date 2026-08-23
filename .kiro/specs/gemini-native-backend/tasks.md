@@ -153,6 +153,29 @@ Task 4 depends on 3 rather than the other way round because the split-role archi
   - _Requirements: 3.7_
 - [x] 4.7 Withhold the knowledge base from the geometry call
   - _Requirements: 3.8_
+- [x] 4.8 Require the function call for a `locate` question and for annotation mode — reported defect
+  - Declaring a tool only invites a call. A live `locate` turn asked for geometry, got nothing, and the
+    speech call described the location in words: "it is that big orange button right in the middle of
+    the screen". It had found it and declined to answer where it counted
+  - A `diagnostic` question stays discretionary. It requests geometry because it might have something to
+    point at, and requiring a call there would send the cursor to whatever the model could find
+  - _Requirements: 3.9, 3.10, 3.11_
+- [x] 4.9 Hedge a stalled geometry request instead of waiting for it — reported defect
+  - The two complaints were one measurement. Latency on a repeated identical request is bimodal: 24 live
+    calls landed either near 1.4s or in a tight cluster near 22.5s with nothing between, and spacing them
+    twelve seconds apart changed nothing. The harvest gave up at 8s, so a stall became "the pointer did
+    nothing", and the turn also felt slow because it spent the whole timeout deciding that
+  - A stall says nothing about the next request, so a second identical one goes out and the first reply
+    wins. The loser is discarded rather than merged, or one question would draw two points
+  - Two alternatives were tried and rejected. A dedicated HTTP client for the geometry call changed
+    nothing, and one run saw the *speech* call take 66s to first token, which contention cannot explain.
+    A client-side deadline is unavailable: setting one failed every request and left the client unusable
+  - _Requirements: 3.12, 3.13, 3.14, 3.15_
+- [x] 4.10 Log the geometry decision, its duration, which attempt answered, and time to first token
+  - A turn that did not point had three possible explanations and a slow turn had two. The log recorded
+    only `structured_geometry=True`, which is a capability rather than a decision, so every one of them
+    looked the same in a diagnostics file
+  - _Requirements: 3.16_
 
 - [x] 5. Thinking budgets (`T1-7`)
 - [x] 5.1 Write the query classifier as a pure function, testing diagnostic intent first
