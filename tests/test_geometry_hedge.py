@@ -175,3 +175,78 @@ class TestForcingTheToolCall:
             annotation_mode=False, with_tools=True, force_tool_call=False)
 
         assert self._mode(config) is None
+
+
+class TestWritingOnTheScreen:
+    """Teaching mode has to be able to write, not only outline.
+
+    Reported: asked to solve an equation on screen, Nimbus boxed part of the equation, said the
+    answer aloud, and wrote nothing. `annotations.Label` existed, `overlay._draw_label_pill` drew it,
+    and the tag grammar had `[LABEL:x,y:text]`. What was missing was a **tool**, so on the native
+    provider the model had no means of producing one: geometry comes from function calls, and a tag
+    written into the spoken channel is stripped before anything can render it.
+
+    Verified live afterwards on a real equation: four `write_note` calls came back as
+    "1) subtract 7 from both sides", "2) 3x = 15", "3) divide by 3", "x = 5", stacked in a column.
+    """
+
+    @pytest.fixture
+    def api(self):
+        from gemini_native import GeminiNativeClient
+
+        return GeminiNativeClient(api_key="unused", model_id="gemini-3-flash-preview")
+
+    def _names(self, tools):
+        return [declaration.name
+                for tool in tools
+                for declaration in (tool.function_declarations or [])]
+
+    def test_teaching_mode_can_write(self, api):
+        assert "write_note" in self._names(api._build_tools(True))
+
+    def test_the_pointer_path_cannot(self, api):
+        """Outside teaching mode the only job is the cursor, and an unused tool is a tool the
+        model can still choose, which would put text on the screen of someone who never asked."""
+        assert "write_note" not in self._names(api._build_tools(False))
+
+    def test_a_written_line_becomes_a_label(self):
+        from annotations import Label
+        from gemini_native import _GeminiNativeStreamingResponse
+
+        stream = _GeminiNativeStreamingResponse(iter(()), 1000, 1000, None, owner=None)
+        stream._calls = [("write_note", {"y": 300, "x": 500, "text": "x = 5"})]
+        stream._geometry_collected = True
+
+        shapes = stream.geometry()
+
+        assert len(shapes) == 1
+        assert isinstance(shapes[0], Label)
+        assert shapes[0].text == "x = 5"
+
+    def test_an_empty_line_is_dropped(self):
+        """A pill with nothing in it is a smudge on the user's screen."""
+        from gemini_native import _GeminiNativeStreamingResponse
+
+        stream = _GeminiNativeStreamingResponse(iter(()), 1000, 1000, None, owner=None)
+        stream._calls = [("write_note", {"y": 300, "x": 500, "text": "   "})]
+        stream._geometry_collected = True
+
+        assert stream.geometry() == []
+
+    def test_several_lines_survive_as_several_labels(self):
+        """A worked solution is a sequence, so nothing may collapse them into one."""
+        from annotations import Label
+        from gemini_native import _GeminiNativeStreamingResponse
+
+        stream = _GeminiNativeStreamingResponse(iter(()), 1000, 1000, None, owner=None)
+        stream._calls = [
+            ("write_note", {"y": 300, "x": 500, "text": "1) subtract 7"}),
+            ("write_note", {"y": 340, "x": 500, "text": "2) 3x = 15"}),
+            ("write_note", {"y": 380, "x": 500, "text": "x = 5"}),
+        ]
+        stream._geometry_collected = True
+
+        labels = [shape for shape in stream.geometry() if isinstance(shape, Label)]
+        assert [label.text for label in labels] == [
+            "1) subtract 7", "2) 3x = 15", "x = 5"]
+        assert [label.y for label in labels] == sorted(label.y for label in labels)

@@ -370,6 +370,49 @@ class GeminiNativeClient(AIClient):
                 ),
                 parameters=_box_schema("region to keep bright"),
             ))
+            # Writing on the screen, which teaching mode could not do at all on this path.
+            #
+            # `annotations.Label` has always existed, `overlay._draw_label_pill` has always drawn
+            # it, and the text-tag grammar has always had `[LABEL:x,y:text]`. What was missing was a
+            # *tool*, so on the native provider the model had no way to produce one: geometry comes
+            # from function calls, and any tag it wrote into the spoken channel was stripped before
+            # anything could render it.
+            #
+            # Reported as a regression, and it was one. Asked to solve an equation on screen, the
+            # model pointed at the equation instead of working through it, because pointing was the
+            # only thing it had been given the means to do.
+            declarations.append(types.FunctionDeclaration(
+                name="write_note",
+                description=(
+                    "Write a short line of text on the screen at a position. This is how you "
+                    "show working rather than describe it: a solved equation, a corrected line "
+                    "of code, a definition, a value the user asked you to compute.\n"
+                    "Call it ONCE PER LINE and number the lines yourself, for example "
+                    "'1) multiply both sides by 3'. Each line is drawn as a single-line chip, so "
+                    "keep every line short and never send a paragraph.\n"
+                    "Stack the lines in a readable column: same x, y increasing by roughly 40 "
+                    "each time, placed over empty screen space rather than on top of the thing "
+                    "you are explaining. Finish with the answer as its own line."
+                ),
+                parameters=types.Schema(
+                    type=types.Type.OBJECT,
+                    properties={
+                        "y": types.Schema(
+                            type=types.Type.INTEGER,
+                            description="Vertical position normalised 0-1000, top to bottom.",
+                        ),
+                        "x": types.Schema(
+                            type=types.Type.INTEGER,
+                            description="Horizontal position normalised 0-1000, left to right.",
+                        ),
+                        "text": types.Schema(
+                            type=types.Type.STRING,
+                            description="One short line. No line breaks.",
+                        ),
+                    },
+                    required=["y", "x", "text"],
+                ),
+            ))
             declarations.append(types.FunctionDeclaration(
                 name="mark_step",
                 description=(
@@ -1166,7 +1209,7 @@ class _GeminiNativeStreamingResponse:
         directly. Separate from ``final_result()`` so the pointer path and the
         annotation path stay independent.
         """
-        from annotations import Circle, Highlight, StepBadge
+        from annotations import Circle, Highlight, Label, StepBadge
 
         self._collect_geometry()
         shapes: list = []
@@ -1200,6 +1243,13 @@ class _GeminiNativeStreamingResponse:
                         shapes.append(StepBadge(
                             point[0], point[1], number, args.get("label") or "",
                         ))
+            # One call per line, so several of these build a worked solution down the screen.
+            # Empty text is dropped rather than drawn: a pill with nothing in it is a smudge.
+            elif name == "write_note":
+                point = self._point_from_args(args)
+                text = str(args.get("text") or "").strip()
+                if point is not None and text:
+                    shapes.append(Label(point[0], point[1], text))
             elif name == "point_at":
                 point = self._point_from_args(args)
                 if point is not None:
